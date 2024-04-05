@@ -4,20 +4,18 @@ import ast
 import tqdm
 import multiprocessing
 
+"""
+Note per una eventuale v2:
+- Separare i file per ego_id potrebbe essere una possibilità, tanto un singolo campione ha bisogno di un solo ego-robot
+- Precalcolare distanza di ciascuna entità dall'ego-robot?
+"""
+
 def select(data, col_name, col_value):
     return data.loc[data[col_name] == col_value]
 
 def get_frame(data, frame_idx):
     # return data.loc[data.frame == frame_idx]
     return select(data, "frame", frame_idx)
-
-# # add either a bunch of already-made DataFrames, or a single row via kwargs
-# # NO SIDE EFFECT ON DATA
-# def appended(data, *new_dfs, **new_row_kwargs):
-#     if len(new_dfs) > 0:
-#         return pd.concat([data] + new_dfs)
-#     else:
-#         return pd.concat([data, pd.DataFrame(new_row_kwargs)])
 
 IN_FIELD_MIN = np.array((0,0))
 IN_FIELD_MAX = np.array((800, 600))
@@ -35,16 +33,14 @@ def process_field_pos(field_pos, *, relative_to=None):
     
     assert field_pos.shape == (2,), "One at a time pls"
     field_pos_new = interpolate(field_pos, IN_FIELD_MIN, IN_FIELD_MAX, OUT_FIELD_MIN, OUT_FIELD_MAX)
-
+    
     if relative_to is not None:
         if isinstance(relative_to, pd.Series):
             relative_to = relative_to.iat[0]
-        # breakpoint()
         relative_to_new = interpolate(relative_to, IN_FIELD_MIN, IN_FIELD_MAX, OUT_FIELD_MIN, OUT_FIELD_MAX)
 
         field_pos_new = field_pos_new - relative_to_new
     
-    # breakpoint()
     return field_pos_new
 
 def do_frame_ego_pair(frame_idx, frame_data, ego_id):
@@ -79,36 +75,12 @@ def do_frame_ego_pair(frame_idx, frame_data, ego_id):
                 relative_pos_y=other_pos_relative[1],
             ), columns=COLUMNS))
     
-    # processed = pd.concat(processed_list)
-    # return processed
-
     return processed_list
 
 def tuple_string_to_numpy(s):
     t = ast.literal_eval(s)
     a = np.array(t)
     return a
-
-# class TheThread(threading.Thread):
-#     def __init__(self, data, frame_indices):
-#         super().__init__()
-#         self.data = data
-#         self.frame_indices = frame_indices
-#         self.done = False
-    
-#     def run(self):
-#         self.processed_list = []
-#         for frame_idx in tqdm.tqdm(self.frame_indices):
-#             frame_data = get_frame(self.data, frame_idx)
-#             for ego_id in frame_data.id:
-#                 if (select(frame_data, "id", ego_id).klasse == "robot").item():
-#                     self.processed_list.extend(do_frame_ego_pair(frame_idx, frame_data, ego_id))
-#         self.done = True
-    
-#     def result(self):
-#         if not self.done:
-#             raise RuntimeError("Thread not done!")
-#         return self.processed_list
 
 def process_job(data, frame_indices, output_list):
     for frame_idx in tqdm.tqdm(frame_indices):
@@ -119,9 +91,6 @@ def process_job(data, frame_indices, output_list):
     # "returns" to main process through side-effect on output_list
 
 COLUMNS = ["frame", "ego_id", "id", "klasse", "field_pos_x", "field_pos_y", "relative_pos_x", "relative_pos_y"]
-
-# def new_processed():
-#     return pd.DataFrame(columns=COLUMNS)
 
 
 # main
@@ -147,14 +116,7 @@ for i in range(len(procs)):
 
 for i in range(len(procs)):
     procs[i].join()
-    # processed_list.extend(t.result())
     processed_list.extend(output_lists[i])
-
-# for frame_idx in tqdm.tqdm(data.frame.unique()):
-#     frame_data = get_frame(data, frame_idx)
-#     for ego_id in frame_data.id:
-#         if (select(frame_data, "id", ego_id).klasse == "robot").item():
-#             processed_list.append(do_frame_ego_pair(frame_idx, frame_data, ego_id))
 
 processed = pd.concat(processed_list)
 
