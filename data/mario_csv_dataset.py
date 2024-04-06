@@ -10,8 +10,11 @@ class MarioCSVDataset(Dataset):
     def __init__(self, csv_path, number_of_other_robots, time_span):
         if not isinstance(csv_path, Path):
             csv_path = Path(csv_path)
+        # default to searching in the same directory as this Python file (so maybe I won't need path_constants this time)
+        if not csv_path.is_absolute():
+            csv_path = Path(__file__).parent / csv_path
         
-        self.data = pd.read_csv("v1--processed.csv")
+        self.data = pd.read_csv(csv_path)
         self.data = self.data.sort_values(by=["frame", "ego_id", "id"])
         
         max_frame = max(self.data.frame.unique())
@@ -24,7 +27,7 @@ class MarioCSVDataset(Dataset):
         self.time_span = time_span
     
     def __len__(self):
-        return self.frame_ego_pairs[0]
+        return self.frame_ego_pairs.shape[0]
     
     def __getitem__(self, idx):
         fep = self.frame_ego_pairs.iloc[idx]

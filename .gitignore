@@ -1,2 +1,4 @@
+__pycache__
 data/*processed.csv
 data/*processed.h5
+outputs
