@@ -46,9 +46,13 @@ class MarioCSVDataset(Dataset):
         ego_pos = relevant_data[relevant_data.id == fep.ego_id].filter(["field_pos_x", "field_pos_y"]).to_numpy()
         others_pos_list = [relevant_data[relevant_data.id == the_id].filter(["relative_pos_x", "relative_pos_y"]).to_numpy() for the_id in closest_robots.id]
         ball_pos = relevant_data[relevant_data.klasse == "ball"].filter(["relative_pos_x", "relative_pos_y"]).to_numpy()
-        to_tensorize = einops.rearrange([ego_pos, *others_pos_list, ball_pos], "object time coords -> time (object coords)")
+        
+        to_tensorize = einops.rearrange([ego_pos, *others_pos_list, ball_pos], "object time coords -> time object coords")
         return torch.Tensor(to_tensorize)
 
 
 if __name__=="__main__":
-    print(MarioCSVDataset("v1--processed.csv", 2, 5)[0])
+    data = MarioCSVDataset("v1--processed.csv", 2, 5)[0]
+    
+    print(data)
+    # print(einops.rearrange(data, "... (coords two) -> ... coords two", two=2))
