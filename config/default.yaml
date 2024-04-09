@@ -10,8 +10,8 @@ device_type: ???     # this is set in the same decorator based on the device; th
 dataset:
   _target_: data.MarioCSVDataset
   csv_path: v1--processed.csv
-  number_of_other_robots: 2
-  time_span: 5
+  number_of_other_robots: 2  # influences transformer config
+  time_span: 5               # influences transformer config
 
 tokenizer:
   _target_: tokenizer.Tokenizer
@@ -19,10 +19,21 @@ tokenizer:
   y_min: -3000.0
   x_max: 4500.0
   y_max: 3000.0
-  x_buckets: 50
-  y_buckets: 30
+  x_buckets: 50              # influences transformer config
+  y_buckets: 30              # influences transformer config
 
-vocab_size: ???   # this is set in a special decorator based on the number of buckets, do NOT override
+transformer:
+  # these three are set in a special decorator based on the other params, do NOT override
+  vocab_size: ???      # = x_buckets * y_buckets
+  num_of_blocks: ???   # = time_span
+  block_size: ???      # = 2 + num_of_other_robots  (i.e. ego + others + ball)
+  _target_: transformer_nanogpt.TransformerConfig
+  n_layer: 6
+  n_head: 12
+  n_embd: 768
+  dropout: 0.0
+  bias: False
+  attn_mask_type: block_causal
 
 training:
   data_split: 0.95

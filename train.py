@@ -6,6 +6,7 @@ import sys
 import logging
 
 from tokenizer import Tokenizer
+from transformer_nanogpt import Transformer, TransformerConfig
 from data import MarioCSVDataset
 import utils
 
@@ -19,8 +20,10 @@ def hydra_autohandle_derived_configs(f):
         # device type based on device
         conf.device_type = 'cuda' if 'cuda' in conf.device else 'cpu'
         
-        # number of tokens given buckets
-        conf.vocab_size = conf.tokenizer.x_buckets * conf.tokenizer.y_buckets
+        # number of tokens given buckets, and other derived transformer configs
+        conf.transformer.vocab_size = conf.tokenizer.x_buckets * conf.tokenizer.y_buckets
+        conf.transformer.num_of_blocks = conf.dataset.time_span
+        conf.transformer.block_size = 2 + conf.dataset.number_of_other_robots  # i.e. ego + others + ball
         try:
             _ = conf.tokenizer.alpha_buckets  # raises an exception (and nothing happens) if it does not exist, otherwise prints the following warning
             print("!!!!!!!!!!!!!!!")
@@ -51,7 +54,7 @@ def main(conf):
     
     tokenizer : Tokenizer = hydra.utils.instantiate(conf.tokenizer)
     
-    # TODO next: transformer qui
+    transformer = Transformer(hydra.utils.instantiate(conf.transformer))
     
     # dataset
     dataset : MarioCSVDataset = hydra.utils.instantiate(conf.dataset)
