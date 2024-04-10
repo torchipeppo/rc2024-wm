@@ -1,4 +1,5 @@
 __pycache__
-data/*processed.csv
+data/*processed*.csv
 data/*processed.h5
+data/*processed_by_egoid
 outputs

@@ -9,7 +9,7 @@ device_type: ???     # this is set in the same decorator based on the device; th
 
 dataset:
   _target_: data.MarioCSVDataset
-  csv_path: v1--processed.csv
+  csv_path: v1_processed_by_egoid
   number_of_other_robots: 2  # influences transformer config
   time_span: 5               # influences transformer config
 
@@ -38,6 +38,15 @@ transformer:
 training:
   data_split: 0.95
   batch_size: 64  # partiamo molto ottimisti, vedremo poi quando ci esplode la memoria
+  epochs: 100
+  batches_per_epoch: 100
+  #
+  transformer:
+    learning_rate: 6e-4
+    weight_decay: 1e-1
+    betas:
+      - 0.9
+      - 0.95
 
 eval:
   batch_size: ${training.batch_size}

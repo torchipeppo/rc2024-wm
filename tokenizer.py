@@ -2,6 +2,7 @@ import torch
 
 # angle-less version
 # does MARIO even give us angles?
+# TODO next: handle nan
 class Tokenizer:
     # x_buckets also counts the two "special" buckets for when x<x_min or x>x_max.
     # this is because the number of possible outcomes of the bucketize function

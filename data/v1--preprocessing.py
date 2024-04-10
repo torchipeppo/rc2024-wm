@@ -3,6 +3,7 @@ import pandas as pd
 import ast
 import tqdm
 import multiprocessing
+from pathlib import Path
 
 """
 Note per una eventuale v2:
@@ -38,42 +39,44 @@ def process_field_pos(field_pos, *, relative_to=None):
         if isinstance(relative_to, pd.Series):
             relative_to = relative_to.iat[0]
         relative_to_new = interpolate(relative_to, IN_FIELD_MIN, IN_FIELD_MAX, OUT_FIELD_MIN, OUT_FIELD_MAX)
-
+        
         field_pos_new = field_pos_new - relative_to_new
     
     return field_pos_new
 
 def do_frame_ego_pair(frame_idx, frame_data, ego_id):
     processed_list = []
+    ball_seen = False
     ego_row = select(frame_data, "id", ego_id)
-    ego_pos = process_field_pos(ego_row.field_pos)
-    ego_pos_relative = process_field_pos(ego_row.field_pos, relative_to=ego_row.field_pos)
-    processed_list.append(pd.DataFrame(dict(
-        frame=frame_idx,
-        ego_id=ego_id,
-        id=ego_id,
-        klasse=ego_row.klasse,
-        field_pos_x=ego_pos[0],
-        field_pos_y=ego_pos[1],
-        relative_pos_x=ego_pos_relative[0],
-        relative_pos_y=ego_pos_relative[1],
-    ), columns=COLUMNS))
     
     for other_id in frame_data.id:
         other_row = select(frame_data, "id", other_id)
-        if other_id != ego_id:
-            other_pos = process_field_pos(other_row.field_pos)
-            other_pos_relative = process_field_pos(other_row.field_pos, relative_to=ego_row.field_pos)
-            processed_list.append(pd.DataFrame(dict(
-                frame=frame_idx,
-                ego_id=ego_id,
-                id=other_id,
-                klasse=other_row.klasse,
-                field_pos_x=other_pos[0],
-                field_pos_y=other_pos[1],
-                relative_pos_x=other_pos_relative[0],
-                relative_pos_y=other_pos_relative[1],
-            ), columns=COLUMNS))
+        other_pos = process_field_pos(other_row.field_pos)
+        other_pos_relative = process_field_pos(other_row.field_pos, relative_to=ego_row.field_pos)
+        processed_list.append(pd.DataFrame(dict(
+            frame=frame_idx,
+            ego_id=ego_id,
+            id=other_id,
+            klasse=other_row.klasse,
+            field_pos_x=other_pos[0],
+            field_pos_y=other_pos[1],
+            relative_pos_x=other_pos_relative[0],
+            relative_pos_y=other_pos_relative[1],
+        ), columns=COLUMNS))
+        if (other_row.klasse == "ball").item():
+            ball_seen = True
+    
+    # if not ball_seen:
+    #     processed_list.append(pd.DataFrame(dict(
+    #         frame=frame_idx,
+    #         ego_id=ego_id,
+    #         id=-1,
+    #         klasse="ball",
+    #         field_pos_x=[np.nan],
+    #         field_pos_y=[np.nan],
+    #         relative_pos_x=[np.nan],
+    #         relative_pos_y=[np.nan],
+    #     ), columns=COLUMNS))
     
     return processed_list
 
@@ -101,24 +104,24 @@ data = pd.read_csv(
     converters={"field_pos": tuple_string_to_numpy}
 )
 
-processed_list = []
+PROCESSES = 6
 
-THREADS = 8
+frames = data.frame.unique()
+ids = data.id.unique()
 
-frame_indices_by_thread = np.array_split(data.frame.unique(), THREADS)
-manager = multiprocessing.Manager()
-output_lists = [manager.list() for _ in range(THREADS)]
+def do_egoid_file(ego_id):
+    processed_list = []
+    for frame in frames:
+        frame_data = get_frame(data, frame)
+        if (ego_id in frame_data.id.values) and (select(frame_data, "id", ego_id).klasse == "robot").item():
+            processed_list.extend(do_frame_ego_pair(frame, frame_data, ego_id))
+    if processed_list:
+        processed = pd.concat(processed_list)
+        processed.to_csv(Path(__file__).parent / f"v1_processed_by_egoid/{ego_id}.csv", index=False)
 
-procs = [multiprocessing.Process(target=process_job, args=(data, frame_indices_by_thread[i], output_lists[i])) for i in range(THREADS)]
-
-for i in range(len(procs)):
-    procs[i].start()
-
-for i in range(len(procs)):
-    procs[i].join()
-    processed_list.extend(output_lists[i])
-
-processed = pd.concat(processed_list)
-
-processed.to_csv("v1--processed.csv")
-processed.to_hdf("v1--processed.h5", key="data")
+pool = multiprocessing.Pool(PROCESSES)
+progressbar = tqdm.tqdm(total=len(ids))
+for _ in pool.imap_unordered(do_egoid_file, ids, chunksize=10):
+    progressbar.update()
+pool.close()
+pool.join()

@@ -1,7 +1,9 @@
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from omegaconf import OmegaConf
 import hydra
+import einops
 import sys
 import logging
 
@@ -68,7 +70,39 @@ def main(conf):
     eval_dataloader = DataLoader(eval_dataset, batch_size=conf.eval.batch_size, shuffle=True, drop_last=True)
     eval_iterator = utils.infiniter(eval_dataloader)
     
-    # TODO optimizer qui
+    optimizer = transformer.configure_optimizers(**(OmegaConf.to_object(conf.training.transformer)), device_type=conf.device_type)
+    
+    global_step = 0
+    for epoch_idx in range(conf.training.epochs):
+        for batch_idx in range(conf.training.batches_per_epoch):
+            print(f"epoch {epoch_idx}  batch {batch_idx}", end="")
+            global_step += conf.training.batch_size
+            optimizer.zero_grad()
+            
+            if batch_idx == conf.training.batches_per_epoch-1:
+                eval_mode = True
+                batch_input, batch_target = eval_iterator.next()
+                transformer.eval()
+                print(" (eval)")
+            else:
+                eval_mode = False
+                batch_input, batch_target = train_iterator.next()
+                transformer.train()
+                print()
+            batch_input = batch_input.to(device)
+            batch_target = batch_target.to(device)
+            
+            tokenized_input = tokenizer.tokenize(batch_input)
+            tokenized_target = tokenizer.tokenize(batch_target)
+            
+            tokenized_input = einops.rearrange(tokenized_input, "batch time object -> batch (time object)")
+            tokenized_target = einops.rearrange(tokenized_target, "batch time object -> batch (time object)")
+            
+            # TODO rivedere dataset e/o tokenizzazione: gli oggetti quasi non si spostano dalla propria cella :)
+            #      posso fare due cose: o prendo frame a intervalli un po' più lunghi (tipo 1 secondo)  [forse meglio]
+            #      o prendo un intorno dell'ego-robot, anziché tutto il campo
+            
+            logits, loss = transformer(tokenized_input, tokenized_target)
     
     # TODO continuare col ciclo di training
 
