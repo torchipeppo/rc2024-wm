@@ -7,7 +7,6 @@ from pathlib import Path
 
 """
 Note per una eventuale v2:
-- Separare i file per ego_id potrebbe essere una possibilità, tanto un singolo campione ha bisogno di un solo ego-robot
 - Precalcolare distanza di ciascuna entità dall'ego-robot?
 """
 
@@ -46,37 +45,26 @@ def process_field_pos(field_pos, *, relative_to=None):
 
 def do_frame_ego_pair(frame_idx, frame_data, ego_id):
     processed_list = []
-    ball_seen = False
     ego_row = select(frame_data, "id", ego_id)
+    
+    # aggressive strategy: if more than one ball is reported in a frame, don't trust anything
+    trust_ball = (len(select(frame_data, "klasse", "ball")) <= 1)
     
     for other_id in frame_data.id:
         other_row = select(frame_data, "id", other_id)
-        other_pos = process_field_pos(other_row.field_pos)
-        other_pos_relative = process_field_pos(other_row.field_pos, relative_to=ego_row.field_pos)
-        processed_list.append(pd.DataFrame(dict(
-            frame=frame_idx,
-            ego_id=ego_id,
-            id=other_id,
-            klasse=other_row.klasse,
-            field_pos_x=other_pos[0],
-            field_pos_y=other_pos[1],
-            relative_pos_x=other_pos_relative[0],
-            relative_pos_y=other_pos_relative[1],
-        ), columns=COLUMNS))
-        if (other_row.klasse == "ball").item():
-            ball_seen = True
-    
-    # if not ball_seen:
-    #     processed_list.append(pd.DataFrame(dict(
-    #         frame=frame_idx,
-    #         ego_id=ego_id,
-    #         id=-1,
-    #         klasse="ball",
-    #         field_pos_x=[np.nan],
-    #         field_pos_y=[np.nan],
-    #         relative_pos_x=[np.nan],
-    #         relative_pos_y=[np.nan],
-    #     ), columns=COLUMNS))
+        if trust_ball or other_row.klasse.item() != "ball":
+            other_pos = process_field_pos(other_row.field_pos)
+            other_pos_relative = process_field_pos(other_row.field_pos, relative_to=ego_row.field_pos)
+            processed_list.append(pd.DataFrame(dict(
+                frame=frame_idx,
+                ego_id=ego_id,
+                id=other_id,
+                klasse=other_row.klasse,
+                field_pos_x=other_pos[0],
+                field_pos_y=other_pos[1],
+                relative_pos_x=other_pos_relative[0],
+                relative_pos_y=other_pos_relative[1],
+            ), columns=COLUMNS))
     
     return processed_list
 
@@ -104,7 +92,7 @@ data = pd.read_csv(
     converters={"field_pos": tuple_string_to_numpy}
 )
 
-PROCESSES = 6
+PROCESSES = 8
 
 frames = data.frame.unique()
 ids = data.id.unique()

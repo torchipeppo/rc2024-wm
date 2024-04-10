@@ -12,6 +12,9 @@ from transformer_nanogpt import Transformer, TransformerConfig
 from data import MarioCSVDataset
 import utils
 
+# index in this list corresponds to the token ID
+RESERVED_TOKENS = ["UNKNOWN"]
+
 # deve stare necessariamente qui, non in un'altra cartella
 def hydra_autohandle_derived_configs(f):
     def wrapper(conf):
@@ -23,7 +26,7 @@ def hydra_autohandle_derived_configs(f):
         conf.device_type = 'cuda' if 'cuda' in conf.device else 'cpu'
         
         # number of tokens given buckets, and other derived transformer configs
-        conf.transformer.vocab_size = conf.tokenizer.x_buckets * conf.tokenizer.y_buckets
+        conf.transformer.vocab_size = conf.tokenizer.x_buckets * conf.tokenizer.y_buckets + len(RESERVED_TOKENS)
         conf.transformer.num_of_blocks = conf.dataset.time_span
         conf.transformer.block_size = 2 + conf.dataset.number_of_other_robots  # i.e. ego + others + ball
         try:
@@ -54,7 +57,7 @@ def main(conf):
     
     writer = SummaryWriter("")
     
-    tokenizer : Tokenizer = hydra.utils.instantiate(conf.tokenizer)
+    tokenizer : Tokenizer = hydra.utils.instantiate(conf.tokenizer, reserved_tokens=RESERVED_TOKENS)
     
     transformer = Transformer(hydra.utils.instantiate(conf.transformer))
     
