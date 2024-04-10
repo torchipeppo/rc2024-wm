@@ -140,7 +140,7 @@ class TransformerConfig:
 
 class Transformer(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, config, reserved_tokens):
         super().__init__()
         assert config.vocab_size is not None
         assert config.num_of_blocks is not None
@@ -163,6 +163,8 @@ class Transformer(nn.Module):
         for pn, p in self.named_parameters():
             if pn.endswith('c_proj.weight'):
                 torch.nn.init.normal_(p, mean=0.0, std=0.02/math.sqrt(2 * config.n_layer))
+
+        self.ignore_indices = range(len(reserved_tokens))
 
         # report number of parameters
         print("number of parameters: %.2fM" % (self.get_num_params()/1e6,))
@@ -202,9 +204,14 @@ class Transformer(nn.Module):
         x = self.transformer.ln_f(x)
 
         if targets is not None:
+            # set up tokens to ignore
+            # https://discuss.pytorch.org/t/check-if-tensor-elements-in-a-value-list/67923
+            # https://stackoverflow.com/questions/66779647/check-if-each-element-of-a-tensor-is-contained-in-a-list
+            is_in_ignore_indices = sum(targets==i for i in self.ignore_indices).bool()
+            targets_with_ignore = torch.where(is_in_ignore_indices, -1, targets)
             # if we are given some desired targets also calculate the loss
             logits = self.lm_head(x)
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets_with_ignore.view(-1), ignore_index=-1)
         else:
             # inference-time mini-optimization: only forward the lm_head on the very last position
             logits = self.lm_head(x[:, [-1], :]) # note: using list [-1] to preserve the time dim

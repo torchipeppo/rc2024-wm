@@ -59,7 +59,7 @@ def main(conf):
     
     tokenizer : Tokenizer = hydra.utils.instantiate(conf.tokenizer, reserved_tokens=RESERVED_TOKENS)
     
-    transformer = Transformer(hydra.utils.instantiate(conf.transformer))
+    transformer = Transformer(hydra.utils.instantiate(conf.transformer), reserved_tokens=RESERVED_TOKENS)
     
     # dataset
     dataset : MarioCSVDataset = hydra.utils.instantiate(conf.dataset)
@@ -106,8 +106,25 @@ def main(conf):
             #      o prendo un intorno dell'ego-robot, anziché tutto il campo
             
             logits, loss = transformer(tokenized_input, tokenized_target)
-    
-    # TODO continuare col ciclo di training
+            
+            if not eval_mode:
+                loss.backward()
+                optimizer.step()
+                writer.add_scalar('TRAIN/loss', loss.item(), global_step)
+            
+            # end-of-epoch eval
+            if eval_mode:
+                writer.add_scalar('EVAL/loss', loss.item(), global_step)
+                
+                # eventuali altre robe
+                
+                checkpoint = {
+                    'epoch': epoch_idx,
+                    'global_step': global_step,
+                    'transformer': transformer.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                }
+                torch.save(checkpoint, "rc2024-wm.pt")
 
 
 if __name__ == "__main__":
