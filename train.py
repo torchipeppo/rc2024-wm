@@ -52,6 +52,7 @@ def main(conf):
     cpu = torch.device("cpu")
     
     logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
     logger.info(" ".join(sys.argv))
     logger.info("================================")
     
@@ -115,6 +116,16 @@ def main(conf):
             # end-of-epoch eval
             if eval_mode:
                 writer.add_scalar('EVAL/loss', loss.item(), global_step)
+                
+                # log predicted sequence every once in a while
+                import torch.nn.functional as F
+                pred_probs = F.softmax(logits[0], dim=-1)
+                pred_tokens = torch.topk(pred_probs, 1).indices.squeeze()
+                logger.debug(f"Epoch {epoch_idx}")
+                logger.debug("PRED TARG")
+                logger.debug(f"See below\n{torch.stack((pred_tokens, tokenized_target[0]), dim=1)}")
+                
+                # TODO metrica: distanza tra predizione e GT (sulla griglia discretizzata)
                 
                 # eventuali altre robe
                 
