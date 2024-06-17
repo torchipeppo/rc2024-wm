@@ -12,6 +12,7 @@ dataset:
   csv_path: v1_processed_by_egoid
   number_of_other_robots: 2  # influences transformer config
   time_span: 5               # influences transformer config
+  time_bw_frames: 300
 
 tokenizer:
   _target_: tokenizer.Tokenizer
