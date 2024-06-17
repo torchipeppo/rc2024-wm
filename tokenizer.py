@@ -38,6 +38,10 @@ class Tokenizer:
         tokenized = torch.where(data.sum(dim=-1).isnan(), self.UNKNOWN, tokenized)
         
         return tokenized
+    
+    def set_device(self, device):
+        self.x_boundaries = self.x_boundaries.to(device)
+        self.y_boundaries = self.y_boundaries.to(device)
 
 
 if __name__ == "__main__":

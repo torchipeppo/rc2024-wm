@@ -7,9 +7,9 @@ class infiniter():
         return self
     def __next__(self):
         try:
-            return self.it.next()
+            return next(self.it)
         except StopIteration:
             self.it = iter(self.iterable)
-            return self.it.next()
+            return next(self.it)
     def next(self):
         return self.__next__()

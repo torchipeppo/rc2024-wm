@@ -59,8 +59,9 @@ def main(conf):
     writer = SummaryWriter("")
     
     tokenizer : Tokenizer = hydra.utils.instantiate(conf.tokenizer, reserved_tokens=RESERVED_TOKENS)
+    tokenizer.set_device(device)
     
-    transformer = Transformer(hydra.utils.instantiate(conf.transformer), reserved_tokens=RESERVED_TOKENS)
+    transformer = Transformer(hydra.utils.instantiate(conf.transformer), reserved_tokens=RESERVED_TOKENS).to(device)
     
     # dataset
     dataset : MarioCSVDataset = hydra.utils.instantiate(conf.dataset)
