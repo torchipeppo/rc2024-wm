@@ -109,15 +109,8 @@ def main(conf):
             tokenized_input = tokenizer.tokenize(batch_input)
             tokenized_target = tokenizer.tokenize(batch_target)
             
-            # print(tokenized_input)
-            # breakpoint()
-            
             tokenized_input = einops.rearrange(tokenized_input, "batch time object -> batch (time object)")
             tokenized_target = einops.rearrange(tokenized_target, "batch time object -> batch (time object)")
-            
-            # TODO rivedere dataset e/o tokenizzazione: gli oggetti quasi non si spostano dalla propria cella :)
-            #      posso fare due cose: o prendo frame a intervalli un po' più lunghi (tipo 1 secondo)  [forse meglio]
-            #      o prendo un intorno dell'ego-robot, anziché tutto il campo
             
             logits, loss = transformer(tokenized_input, tokenized_target)
             

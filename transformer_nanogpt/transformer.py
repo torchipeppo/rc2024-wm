@@ -30,7 +30,6 @@ class LayerNorm(nn.Module):
     def forward(self, input):
         return F.layer_norm(input, self.weight.shape, self.weight, self.bias, 1e-5)
 
-# TODO attenzione deve essere BLOCK-causal, perché vorremmo mettere più di uno stato precedente in input
 class CausalSelfAttention(nn.Module):
 
     def __init__(self, config):
@@ -47,25 +46,23 @@ class CausalSelfAttention(nn.Module):
         self.n_embd = config.n_embd
         self.dropout = config.dropout
         # flash attention make GPU go brrrrr but support is only in PyTorch >= 2.0
-        self.flash = False  # hasattr(torch.nn.functional, 'scaled_dot_product_attention')
-        # TODO       ^^^^^ Implementare roba sotto e rimettere originale
+        self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
 
         # attention masks
-        if self.flash:
-            raise NotImplementedError()
+        if config.attn_mask_type == "pure_causal":
+            # causal mask to ensure that attention is only applied to the left in the input sequence
+            attn_mask = torch.tril(torch.ones(config.sequence_size, config.sequence_size)).view(1, 1, config.sequence_size, config.sequence_size)
+        elif config.attn_mask_type == "block_causal":
+            attn_mask = block_tril(config).view(1, 1, config.sequence_size, config.sequence_size)
+        elif config.attn_mask_type == "none":
+            attn_mask = torch.ones(config.sequence_size, config.sequence_size).view(1, 1, config.sequence_size, config.sequence_size)
         else:
+            raise AttributeError(f"Unknown attn_mask_type: {config.attn_mask_type}")
+        if self.flash:
+            attn_mask = attn_mask.to(bool)
+        # else:
             # print("WARNING: using slow attention. Flash Attention requires PyTorch >= 2.0")
-
-            if config.attn_mask_type == "pure_causal":
-                # causal mask to ensure that attention is only applied to the left in the input sequence
-                attn_mask = torch.tril(torch.ones(config.sequence_size, config.sequence_size)).view(1, 1, config.sequence_size, config.sequence_size)
-            elif config.attn_mask_type == "block_causal":
-                attn_mask = block_tril(config).view(1, 1, config.sequence_size, config.sequence_size)
-            elif config.attn_mask_type == "none":
-                attn_mask = torch.ones(config.sequence_size, config.sequence_size).view(1, 1, config.sequence_size, config.sequence_size)
-            else:
-                raise AttributeError(f"Unknown attn_mask_type: {config.attn_mask_type}")
-            self.register_buffer("attn_mask", attn_mask)
+        self.register_buffer("attn_mask", attn_mask)
 
     def forward(self, x):
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
@@ -79,7 +76,7 @@ class CausalSelfAttention(nn.Module):
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         if self.flash:
             # efficient attention using Flash Attention CUDA kernels
-            y = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=self.dropout if self.training else 0, is_causal=True)
+            y = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=self.attn_mask, dropout_p=self.dropout if self.training else 0, is_causal=True)
         else:
             # manual implementation of attention
             att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))

@@ -113,9 +113,7 @@ class Tokenizer:
         # assign a different range to relative positions
         rel_tokenized = x_rel_bucketized * self.rel_buckets + y_rel_bucketized + self.x_buckets*self.y_buckets + self.num_reserved_tokens
         
-        # tokenized = einops.rearrange([abs_tokenized[..., [0]], rel_tokenized[..., 1:]], "list ... object -> ... (list object)")
         tokenized = torch.cat([abs_tokenized[..., [0]], rel_tokenized[..., 1:]], dim=-1)
-        # TODO NEXT verificare!!!
         
         # put UNKNOWN token where data was unavailable (NaN)
         # exploit the rule that anything+nan=nan to reduce the coords dimension
