@@ -26,7 +26,16 @@ def hydra_autohandle_derived_configs(f):
         conf.device_type = 'cuda' if 'cuda' in conf.device else 'cpu'
         
         # number of tokens given buckets, and other derived transformer configs
-        conf.transformer.vocab_size = conf.tokenizer.x_buckets * conf.tokenizer.y_buckets + len(RESERVED_TOKENS)
+        conf.tokenizer.rel_pos_conf.total_relative_buckets = (
+            2 * (conf.tokenizer.rel_pos_conf.high_precision_positive_buckets +  # this x2 is b/c the conf only specifies the no. of buckets on the positive side
+                conf.tokenizer.rel_pos_conf.mid_precision_positive_buckets +
+                conf.tokenizer.rel_pos_conf.low_precision_positive_buckets + 1)
+        )
+        conf.transformer.vocab_size = (
+            conf.tokenizer.abs_pos_conf.x_buckets * conf.tokenizer.abs_pos_conf.y_buckets +
+            conf.tokenizer.rel_pos_conf.total_relative_buckets ** 2 +  # this ^2 is b/c until now we only counted one axis, and x and y have the same no. of rel. buckets
+            len(RESERVED_TOKENS)
+        )
         conf.transformer.num_of_blocks = conf.dataset.time_span
         conf.transformer.block_size = 2 + conf.dataset.number_of_other_robots  # i.e. ego + others + ball
         try:
@@ -99,6 +108,9 @@ def main(conf):
             
             tokenized_input = tokenizer.tokenize(batch_input)
             tokenized_target = tokenizer.tokenize(batch_target)
+            
+            # print(tokenized_input)
+            # breakpoint()
             
             tokenized_input = einops.rearrange(tokenized_input, "batch time object -> batch (time object)")
             tokenized_target = einops.rearrange(tokenized_target, "batch time object -> batch (time object)")
