@@ -11,6 +11,7 @@ dataset:
   _target_: data.MarioCSVDataset
   csv_path: v1_processed_by_egoid
   number_of_other_robots: 2  # influences transformer config
+  min_time_span: 3
   time_span: 5               # influences transformer config
   time_bw_frames: 300
 

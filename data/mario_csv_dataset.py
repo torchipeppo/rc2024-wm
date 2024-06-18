@@ -18,7 +18,9 @@ class defaultdict_ext(defaultdict):
 
 # finché sono "solo" 100 MB, si può anche far tutto in RAM...
 class MarioCSVDataset(Dataset):
-    def __init__(self, csv_path, number_of_other_robots, time_span, time_bw_frames):
+    def __init__(self, csv_path, number_of_other_robots, time_span, min_time_span, time_bw_frames):
+        assert min_time_span > 0
+        assert time_span >= min_time_span
         if not isinstance(csv_path, Path):
             csv_path = Path(csv_path)
         # default to searching in the same directory as this Python file (so maybe I won't need path_constants this time)
@@ -37,9 +39,7 @@ class MarioCSVDataset(Dataset):
             data = pd.read_csv(f).sort_values(by=["frame", "ego_id", "id"])
             max_frame = max(data.frame.unique())
             partial_frame_ego_pairs = data.filter(["frame", "ego_id"], axis="columns").drop_duplicates()
-            # TODO riadattare questa riga: magari possiamo accettare sequenze da meno del time_span se riempiamo il resto con NaN
-            #      (ma devo ristudiare di preciso come gestisco il NaN)
-            # partial_frame_ego_pairs = partial_frame_ego_pairs[partial_frame_ego_pairs.frame <= max_frame - self.frames_to_fetch + 1]
+            partial_frame_ego_pairs = partial_frame_ego_pairs[partial_frame_ego_pairs.frame <= max_frame - (min_time_span-1)*time_bw_frames]
             
             self.data_by_egoid[egoid] = data
             self.maxframe_by_egoid[egoid] = max_frame
