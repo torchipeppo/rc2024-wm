@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from dataclasses import dataclass
 import einops
 
@@ -109,9 +110,15 @@ class Tokenizer:
         
         # "reduce" coords dimension by generating a unique token ID for each combination of XY buckets,
         # kinda like a y_buckets-base number
-        abs_tokenized = x_abs_bucketized * self.y_buckets + y_abs_bucketized + self.num_reserved_tokens
+        abs_tokenized = self.abs_buckets_to_token(x_abs_bucketized, y_abs_bucketized)
         # assign a different range to relative positions
-        rel_tokenized = x_rel_bucketized * self.rel_buckets + y_rel_bucketized + self.x_buckets*self.y_buckets + self.num_reserved_tokens
+        rel_tokenized = self.rel_buckets_to_token(x_rel_bucketized, y_rel_bucketized)
+
+        # print("self.relative_boundaries:", self.relative_boundaries)
+        # print("x_abs_bucketized:", x_abs_bucketized)
+        # print("y_abs_bucketized:", y_abs_bucketized)
+        # print("x_rel_bucketized:", x_rel_bucketized)
+        # print("y_rel_bucketized:", y_rel_bucketized)
         
         tokenized = torch.cat([abs_tokenized[..., [0]], rel_tokenized[..., 1:]], dim=-1)
         
@@ -125,13 +132,100 @@ class Tokenizer:
         self.x_boundaries = self.x_boundaries.to(device)
         self.y_boundaries = self.y_boundaries.to(device)
         self.relative_boundaries = self.relative_boundaries.to(device)
+    
+    # Thanks to Python typing, should work with ints and tensors alike, batched or unbatched
+    # kinda like a y_buckets-base number
+    def abs_buckets_to_token(self, x_abs_bucketized, y_abs_bucketized):
+        return x_abs_bucketized * self.y_buckets + y_abs_bucketized + self.num_reserved_tokens
+    
+    # Thanks to Python typing, should work with ints and tensors alike, batched or unbatched
+    def rel_buckets_to_token(self, x_rel_bucketized, y_rel_bucketized):
+        return x_rel_bucketized * self.rel_buckets + y_rel_bucketized + self.x_buckets*self.y_buckets + self.num_reserved_tokens
+    
+    # again, kinda like a y_buckets-base number
+    # Doesn't work with ints in this state, only tensors
+    def __abs_token_to_buckets(self, token):
+        token -= self.num_reserved_tokens
+        x = token // self.y_buckets
+        y = token % self.y_buckets
+        return torch.stack((x,y), dim=-1)
+    
+    # Doesn't work with ints in this state, only tensors
+    def __rel_token_to_buckets(self, token):
+        token -= self.num_reserved_tokens + self.x_buckets*self.y_buckets
+        x = token // self.rel_buckets
+        y = token % self.rel_buckets
+        return torch.stack((x,y), dim=-1)
+    
+    # keeping in mind that buckets 0 and len(boundaries) are "out-of-range",
+    # each other bucket (i = 1, ..., len-1) is going to be the cell bounded by bounds[i-1] and bounds[i]
+    def __abs_buckets_to_cellcenters(self, buckets):
+        x_buckets = buckets[..., 0]
+        y_buckets = buckets[..., 1]
+        # setup to allow the "find centers" operation to work even in the presence of OOR buckets
+        # (they will be filtered out later anyway)
+        x_bounds_with_nan = torch.tensor(list(self.x_boundaries) + [torch.tensor(np.nan)], device=self.x_boundaries.device)
+        y_bounds_with_nan = torch.tensor(list(self.y_boundaries) + [torch.tensor(np.nan)], device=self.y_boundaries.device)
+                            # TODO cat?
+        # for internal buckets, this does exactly as the comment above this function.
+        # for bucket 0 (negative OOR) this gets bounds[0] and bounds[-1], thich is the final nan
+        # for bucket len(boundaries) (positive OOR) this gets bounds[len-1] and bounds[len], which is again the final nan
+        # so this should be fine. Then, filter out OOR results.
+        x_centers = (x_bounds_with_nan[x_buckets-1] + x_bounds_with_nan[x_buckets]) / 2
+        x_centers = torch.where(x_buckets == 0, -np.inf, x_centers)
+        x_centers = torch.where(x_buckets == len(self.x_boundaries), np.inf, x_centers)  # TODO x_buckets rather than len(...)?
+        y_centers = (y_bounds_with_nan[y_buckets-1] + y_bounds_with_nan[y_buckets]) / 2
+        y_centers = torch.where(y_buckets == 0, -np.inf, y_centers)
+        y_centers = torch.where(y_buckets == len(self.y_boundaries), np.inf, y_centers)
+        return torch.stack((x_centers, y_centers), dim=-1)
+    
+    # same concept as above, but easier, b/c x and y have the same boundaries for relative
+    def __rel_buckets_to_cellcenters(self, buckets):
+        bounds_with_nan = torch.tensor(list(self.relative_boundaries) + [torch.tensor(np.nan)], device=self.relative_boundaries.device)
+                            # TODO cat?
+        centers = (bounds_with_nan[buckets-1] + bounds_with_nan[buckets]) / 2
+        centers = torch.where(buckets==0, -np.inf, centers)
+        centers = torch.where(buckets==len(self.relative_boundaries), np.inf, centers)
+        return centers
+    
+    def token_to_buckets(self, token):
+        # if token == self.UNKNOWN:
+        #     return None  # TODO meglio tensore nan?
+        # part 0
+        tmp_token = token - self.num_reserved_tokens
+        # to avoid that the abs functions end up manipulating the much larger relative tokens
+        # the exact placeholder value doesn't really matter,
+        # since that part will be filtered out by the other wheres
+        abs_token = torch.where(tmp_token < self.x_buckets*self.y_buckets, token, 0)
+        rel_token = torch.where(tmp_token >= self.x_buckets*self.y_buckets, token, 0)
+        # for compatibility w/ abs_buk, rel_buk, abs_cen, rel_cen
+        tmp_token = einops.repeat(tmp_token, "... token -> ... token coords", coords=2)
+        # part 1
+        abs_buk = self.__abs_token_to_buckets(abs_token)
+        rel_buk = self.__rel_token_to_buckets(rel_token)
+        the_buckets = torch.where(tmp_token < self.x_buckets*self.y_buckets, abs_buk, rel_buk)
+        # part 2
+        abs_cen = self.__abs_buckets_to_cellcenters(abs_buk)
+        rel_cen = self.__rel_buckets_to_cellcenters(rel_buk)
+        the_centers = torch.where(tmp_token < self.x_buckets*self.y_buckets, abs_cen, rel_cen)
+        # filter out reserved tokens
+        the_buckets = torch.where(tmp_token < 0, np.nan, the_buckets)
+        the_centers = torch.where(tmp_token < 0, np.nan, the_centers)
+        return the_buckets, the_centers
+    
+    # TODO def token_is_abs(token)
+
 
 
 if __name__ == "__main__":
-    t = Tokenizer(0, 0, 4, 3, 6, 5)
-    t.tokenize(torch.Tensor([[[-1,-1], [-1,0.1], [-1,1.1], [-1,2.2], [-1,3.3]],
-                             [[0.1,-1], [0.1,0.1], [0.1,1.1], [0.1,2.2], [0.1,3.3]],
-                             [[1.1,-1], [1.1,0.1], [1.1,1.1], [1.1,2.2], [1.1,3.3]],
-                             [[2.2,-1], [2.2,0.1], [2.2,1.1], [2.2,2.2], [2.2,3.3]],
-                             [[3.3,-1], [3.3,0.1], [3.3,1.1], [3.3,2.2], [3.3,3.3]],
-                             [[4.4,-1], [4.4,0.1], [4.4,1.1], [4.4,2.2], [4.4,3.3]]]))
+    h,m,l = 20,5,6
+    t = Tokenizer(
+        AbsolutePosConf(-4500.0, -3000.0, 4500.0, 3000.0, 50, 30),
+        RelativePosConf(2000.0, 3000.0, 6000.0, h, m, l, 2 * (h + m + l + 1)),
+        ["UNKNOWN"]
+    )
+    test_batch = torch.rand((10,4,2)) * 6000
+    print(test_batch)
+    token = t.tokenize(test_batch)
+    print(token.shape)
+    print(t.token_to_buckets(token)[1])

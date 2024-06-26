@@ -23,6 +23,7 @@ tokenizer:
     y_min: -3000.0
     x_max: 4500.0
     y_max: 3000.0
+    # MEMO: if the number of buckets is even, zero WILL be a boundary.
     x_buckets: 50              # influences transformer config
     y_buckets: 30              # influences transformer config
   rel_pos_conf:

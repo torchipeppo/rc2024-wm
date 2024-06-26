@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+import numpy as np
 from omegaconf import OmegaConf
 import hydra
 import einops
@@ -11,8 +12,10 @@ from tokenizer import Tokenizer
 from transformer_nanogpt import Transformer, TransformerConfig
 from data import MarioCSVDataset
 import utils
+import metrics
 
 # index in this list corresponds to the token ID
+# Note to self: adding new reserved tokens will require a (hopefully minor) overhaul of the tokenizer.
 RESERVED_TOKENS = ["UNKNOWN"]
 
 # deve stare necessariamente qui, non in un'altra cartella
@@ -108,6 +111,8 @@ def main(conf):
             
             tokenized_input = tokenizer.tokenize(batch_input)
             tokenized_target = tokenizer.tokenize(batch_target)
+
+            # print(tokenized_input)
             
             tokenized_input = einops.rearrange(tokenized_input, "batch time object -> batch (time object)")
             tokenized_target = einops.rearrange(tokenized_target, "batch time object -> batch (time object)")
@@ -125,13 +130,32 @@ def main(conf):
                 
                 # log predicted sequence every once in a while
                 import torch.nn.functional as F
-                pred_probs = F.softmax(logits[0], dim=-1)
+                pred_probs = F.softmax(logits, dim=-1)
                 pred_tokens = torch.topk(pred_probs, 1).indices.squeeze()
                 logger.debug(f"Epoch {epoch_idx}")
                 logger.debug("PRED TARG")
-                logger.debug(f"See below\n{torch.stack((pred_tokens, tokenized_target[0]), dim=1)}")
+                logger.debug(f"See below\n{torch.stack((pred_tokens[0], tokenized_target[0]), dim=1)}")
                 
                 # TODO metrica: distanza tra predizione e GT (sulla griglia discretizzata)
+                # Note: they are both discretized, but grid is just about the spaces on the grid
+                # while field is the center of each grid cell (in millimeters)
+                pred_grid_pos, pred_field_pos = tokenizer.token_to_buckets(pred_tokens)
+                targ_grid_pos, _ = tokenizer.token_to_buckets(tokenized_target)
+                true_field_pos = einops.rearrange(batch_target, "batch time object coords -> batch (time object) coords")
+                abs_token_mask = tokenized_target - tokenizer.num_reserved_tokens < tokenizer.x_buckets*tokenizer.y_buckets
+                                    # TODO tokenizer.token_is_abs
+                # euclidean distance of field positions
+                # don't count out-of-range predictions in this particular metric
+                pfp = torch.where(pred_field_pos.isinf(), np.nan, pred_field_pos)
+                field_distance = metrics.field_distance(pfp, true_field_pos, abs_token_mask)
+                writer.add_scalar('EVAL/field_distance', field_distance.glob.item(), global_step)
+                writer.add_scalar('EVAL/abs_field_distance', field_distance.abs.item(), global_step)
+                writer.add_scalar('EVAL/rel_field_distance', field_distance.rel.item(), global_step)
+                # manhattan distance in grid space
+                grid_distance = metrics.grid_distance(pred_grid_pos, targ_grid_pos, abs_token_mask)
+                writer.add_scalar('EVAL/grid_distance', grid_distance.glob.item(), global_step)
+                writer.add_scalar('EVAL/abs_grid_distance', grid_distance.abs.item(), global_step)
+                writer.add_scalar('EVAL/rel_grid_distance', grid_distance.rel.item(), global_step)
                 
                 # eventuali altre robe
                 
