@@ -212,6 +212,9 @@ class Tokenizer:
         the_buckets = torch.where(tmp_token < 0, np.nan, the_buckets)
         the_centers = torch.where(tmp_token < 0, np.nan, the_centers)
         return the_buckets, the_centers
+        # TODO MAYBE aggiungere precisione? (utile per darla al resto della challenge, forse)
+        #            potrei anche fare una funzione diversa per fare centers e precision
+        #            anziché caricare questa
     
     # TODO def token_is_abs(token)
 

@@ -164,6 +164,8 @@ def main(conf):
                     'global_step': global_step,
                     'transformer': transformer.state_dict(),
                     'optimizer': optimizer.state_dict(),
+                    'conf': conf,
+                    'reserved_tokens': RESERVED_TOKENS,
                 }
                 torch.save(checkpoint, "rc2024-wm.pt")
 
