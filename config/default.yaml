@@ -35,11 +35,13 @@ tokenizer:
     high_precision_positive_buckets: 20
     mid_precision_positive_buckets: 5
     low_precision_positive_buckets: 6  # does NOT include "out-of-range" bucket (unlike abs_pos_conf)
-    total_relative_buckets: ???  # influences transformer config. depends on the three above. set in a special wrapper at the very beginning.
+    # influences transformer config. depends on the three above.
+    # set in a special wrapper at the very beginning. do NOT override.
+    total_relative_buckets: ???  # = 2*(high+mid+low+1)
 
 transformer:
   # these three are set in a special decorator based on the other params, do NOT override
-  vocab_size: ???      # = x_buckets * y_buckets
+  vocab_size: ???      # = x_buckets * y_buckets + total_relative_buckets**2
   num_of_blocks: ???   # = time_span
   block_size: ???      # = 2 + num_of_other_robots  (i.e. ego + others + ball)
   _target_: transformer_nanogpt.TransformerConfig

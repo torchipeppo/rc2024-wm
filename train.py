@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
@@ -129,7 +130,6 @@ def main(conf):
                 writer.add_scalar('EVAL/loss', loss.item(), global_step)
                 
                 # log predicted sequence every once in a while
-                import torch.nn.functional as F
                 pred_probs = F.softmax(logits, dim=-1)
                 pred_tokens = torch.topk(pred_probs, 1).indices.squeeze()
                 logger.debug(f"Epoch {epoch_idx}")

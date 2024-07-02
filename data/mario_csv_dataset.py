@@ -60,15 +60,8 @@ class MarioCSVDataset(Dataset):
         actually_found_frames = defaultdict_ext(lambda k: k)
         relevant_data = self.data_by_egoid[fep.ego_id]
         
-        # relevant_data_list = [find_closest_frame(relevant_data, f, self.next_frame_tolerance) for f in frame_range]
-        # relevant_data = pd.concat(cut_at_first_occurrence_of(relevant_data_list, ERROR_VALUE))
         relevant_data_list = []
         for f in frame_range:
-            # # could be a DataFrame or an ERROR_VALUE of a different type, hence, I dunno what this is yet
-            # dunno = find_closest_frame(relevant_data, f, self.next_frame_tolerance)
-            # if dunno == ERROR_VALUE:
-            #     break
-            # relevant_data_list.append[dunno]
             try:
                 df = find_closest_frame(relevant_data, f, self.next_frame_tolerance)
                 relevant_data_list.append(df)
@@ -78,7 +71,6 @@ class MarioCSVDataset(Dataset):
         relevant_data = pd.concat(relevant_data_list)
         
         # find closest robots
-        # breakpoint()
         other_robots_in_first_frame = relevant_data[
             (relevant_data.frame == fep.frame) &
             (relevant_data.id != fep.ego_id) &
