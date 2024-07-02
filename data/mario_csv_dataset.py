@@ -143,12 +143,12 @@ def cut_at_first_occurrence_of(l, x):
     return l
 
 if __name__=="__main__":
-    data = MarioCSVDataset("v1_processed_by_egoid", 2, 5, FPS)[0]
-    # TODO NEXT: [X] sta parte FORSE è fatta, c'è da vedere il tokenizer che ne pensa (pare vada bene)
-    #            [ ] decidere time_bw_frames in config
-    #            [X] forse voglio discretizzare le posizioni relative con maggiore precisione nell'intorno dell'ego-robot...
+    data = MarioCSVDataset(
+        "v1_processed_by_egoid",
+        number_of_other_robots=2,
+        min_time_span=3,
+        time_span=5,
+        time_bw_frames=10*FPS)[3]
+    # TODO NEXT: decidere per bene time_bw_frames in config
     
-    print(data)
-    print(data[0].shape)
-    print(data[1].shape)
-    # print(einops.rearrange(data, "... (coords two) -> ... coords two", two=2))
+    print(data[0])
