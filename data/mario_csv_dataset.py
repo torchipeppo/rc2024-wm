@@ -16,7 +16,7 @@ class defaultdict_ext(defaultdict):
             raise KeyError(key)
         return self.default_factory(key)
 
-# finché sono "solo" 100 MB, si può anche far tutto in RAM...
+# finché sono "solo" 800 MB, si può anche far tutto in RAM...
 class MarioCSVDataset(Dataset):
     def __init__(self, csv_path, number_of_other_robots, time_span, min_time_span, time_bw_frames):
         assert min_time_span > 0
@@ -29,27 +29,34 @@ class MarioCSVDataset(Dataset):
         
         # +1 b/c we'll also want to fetch a target sequence, which is shifted by 1 wrt input
         self.frames_to_fetch = time_span + 1
-        self.data_by_egoid = dict()
-        self.maxframe_by_egoid = dict()
+        self.data_by_gameegoid = dict()
+        self.maxframe_by_gameegoid = dict()
         frame_ego_pairs_list = []
         
         for f in csv_path.iterdir():
             assert f.suffix == ".csv"
-            egoid = int(f.stem)
+            gameegoid = f.stem
             data = pd.read_csv(f).sort_values(by=["frame", "ego_id", "id"])
             max_frame = max(data.frame.unique())
             partial_frame_ego_pairs = data.filter(["frame", "ego_id"], axis="columns").drop_duplicates()
             partial_frame_ego_pairs = partial_frame_ego_pairs[partial_frame_ego_pairs.frame <= max_frame - (min_time_span-1)*time_bw_frames]
             
-            self.data_by_egoid[egoid] = data
-            self.maxframe_by_egoid[egoid] = max_frame
-            frame_ego_pairs_list.append(partial_frame_ego_pairs)
+            if partial_frame_ego_pairs.shape[0] > 0:
+                # the data loaded from the file has all the same ego_id, by construction (see preprocessing).
+                # but the ego_id written there is only the robot id, we nned to disambiguate
+                # by augmenting w/ the game id too
+                partial_frame_ego_pairs["game_ego_id"] = gameegoid
+                self.data_by_gameegoid[gameegoid] = data
+                self.maxframe_by_gameegoid[gameegoid] = max_frame
+                frame_ego_pairs_list.append(partial_frame_ego_pairs)
         
         self.frame_ego_pairs = pd.concat(frame_ego_pairs_list).sort_values(by=["frame", "ego_id"])
         self.number_of_other_robots = number_of_other_robots
         self.time_span = time_span
         self.time_bw_frames = time_bw_frames
         self.next_frame_tolerance = time_bw_frames // 10
+
+        print(len(self), len(self.data_by_gameegoid))
     
     def __len__(self):
         return self.frame_ego_pairs.shape[0]
@@ -58,7 +65,7 @@ class MarioCSVDataset(Dataset):
         fep = self.frame_ego_pairs.iloc[idx]
         frame_range = [fep.frame + self.time_bw_frames * i for i in range(self.frames_to_fetch)]
         actually_found_frames = defaultdict_ext(lambda k: k)
-        relevant_data = self.data_by_egoid[fep.ego_id]
+        relevant_data = self.data_by_gameegoid[fep.game_ego_id]
         
         relevant_data_list = []
         for f in frame_range:

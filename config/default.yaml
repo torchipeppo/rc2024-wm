@@ -9,7 +9,7 @@ device_type: ???     # this is set in the same decorator based on the device; th
 
 dataset:
   _target_: data.MarioCSVDataset
-  csv_path: v1_processed_by_egoid
+  csv_path: PROCESSED_DATA
   number_of_other_robots: 2  # influences transformer config
   min_time_span: 3
   time_span: 5               # influences transformer config
