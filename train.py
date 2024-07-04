@@ -8,10 +8,11 @@ import hydra
 import einops
 import sys
 import logging
+from pathlib import Path
 
 from tokenizer import Tokenizer
 from transformer_nanogpt import Transformer, TransformerConfig
-from data import MarioCSVDataset
+from data import MarioCSVDataset, MarioRealizedDataset
 import utils
 import metrics
 
@@ -28,6 +29,11 @@ def hydra_autohandle_derived_configs(f):
         
         # device type based on device
         conf.device_type = 'cuda' if 'cuda' in conf.device else 'cpu'
+        
+        dataset_conf = OmegaConf.load(Path(__file__).parent / 'data' / conf.dataset.csv_path / "config.yaml")
+        for key in dataset_conf:
+            print(dataset_conf.keys())
+            conf.dataset[key] = dataset_conf[key]
         
         # number of tokens given buckets, and other derived transformer configs
         conf.tokenizer.rel_pos_conf.total_relative_buckets = (
@@ -77,15 +83,16 @@ def main(conf):
     transformer = Transformer(hydra.utils.instantiate(conf.transformer), reserved_tokens=RESERVED_TOKENS).to(device)
     
     # dataset
-    dataset : MarioCSVDataset = hydra.utils.instantiate(conf.dataset)
+    # dataset : MarioCSVDataset = hydra.utils.instantiate(conf.dataset)
+    dataset = MarioRealizedDataset(conf.dataset.csv_path)
     # train-test split
     datasplit_rng = torch.Generator()
     datasplit_rng.manual_seed(14383421)
     train_len = int(len(dataset) * conf.training.data_split)
     train_dataset, eval_dataset = torch.utils.data.random_split(dataset, [train_len, len(dataset)-train_len], generator=datasplit_rng)
-    train_dataloader = DataLoader(train_dataset, batch_size=conf.training.batch_size, shuffle=True, drop_last=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=conf.training.batch_size, shuffle=True, drop_last=True, num_workers=conf.training.dataloading_workers)
     train_iterator = utils.infiniter(train_dataloader)
-    eval_dataloader = DataLoader(eval_dataset, batch_size=conf.eval.batch_size, shuffle=True, drop_last=True)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=conf.eval.batch_size, shuffle=True, drop_last=True, num_workers=conf.training.dataloading_workers)
     eval_iterator = utils.infiniter(eval_dataloader)
     
     optimizer = transformer.configure_optimizers(**(OmegaConf.to_object(conf.training.transformer)), device_type=conf.device_type)

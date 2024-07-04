@@ -1,7 +1,7 @@
 __pycache__
 data/**/*processed*.csv
 data/**/*processed.h5
-data/**/*processed_by_egoid
-data/**/PROCESSED_DATA
+data/**/*processed_by_*egoid
+data/**/realized*/*.data
 outputs
 venv

@@ -116,7 +116,7 @@ for fname in FILES:
                 processed_list.extend(do_frame_ego_pair(frame, frame_data, ego_id))
         if processed_list:
             processed = pd.concat(processed_list)
-            processed.to_csv(Path(__file__).parent / f"PROCESSED_DATA/{file_id_no}-{ego_id}.csv", index=False)
+            processed.to_csv(Path(__file__).parent / f"processed_by_gameegoid/{file_id_no}-{ego_id}.csv", index=False)
 
     pool = multiprocessing.Pool(PROCESSES)
     progressbar = tqdm.tqdm(total=len(ids))

@@ -8,12 +8,14 @@ device_type: ???     # this is set in the same decorator based on the device; th
 # TODO seed
 
 dataset:
-  _target_: data.MarioCSVDataset
-  csv_path: PROCESSED_DATA
-  number_of_other_robots: 3  # influences transformer config
-  min_time_span: 3
-  time_span: 5               # influences transformer config
-  time_bw_frames: 300
+  # _target_: data.MarioCSVDataset
+  csv_path: realized_5-300
+  # the next ones are loaded from the (fixed) realized dataset config now
+  orig_csv_path: ???
+  number_of_other_robots: ???  # influences transformer config
+  min_time_span: ???
+  time_span: ???              # influences transformer config
+  time_bw_frames: ???
 
 tokenizer:
   _target_: tokenizer.Tokenizer
@@ -55,6 +57,7 @@ transformer:
 training:
   data_split: 0.95
   batch_size: 64  # partiamo molto ottimisti, vedremo poi quando ci esplode la memoria
+  dataloading_workers: 4
   epochs: 100
   batches_per_epoch: 100
   #
