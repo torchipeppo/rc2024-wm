@@ -1,0 +1,1 @@
+from .api_for_the_challenge import TorchipeppoWorldModel
