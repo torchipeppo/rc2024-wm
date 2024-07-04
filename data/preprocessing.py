@@ -4,11 +4,7 @@ import ast
 import tqdm
 import multiprocessing
 from pathlib import Path
-
-"""
-Note per una eventuale v2:
-- Precalcolare distanza di ciascuna entità dall'ego-robot?
-"""
+import math
 
 def select(data, col_name, col_value):
     return data.loc[data[col_name] == col_value]
@@ -55,6 +51,7 @@ def do_frame_ego_pair(frame_idx, frame_data, ego_id):
         if trust_ball or other_row.klasse.item() != "ball":
             other_pos = process_field_pos(other_row.field_pos)
             other_pos_relative = process_field_pos(other_row.field_pos, relative_to=ego_row.field_pos)
+            dist_to_ego = math.sqrt(other_pos_relative[0]**2 + other_pos_relative[1]**2)
             processed_list.append(pd.DataFrame(dict(
                 frame=frame_idx,
                 ego_id=ego_id,
@@ -64,6 +61,7 @@ def do_frame_ego_pair(frame_idx, frame_data, ego_id):
                 field_pos_y=other_pos[1],
                 relative_pos_x=other_pos_relative[0],
                 relative_pos_y=other_pos_relative[1],
+                dist_to_ego=dist_to_ego,
             ), columns=COLUMNS))
     
     return processed_list
@@ -81,7 +79,7 @@ def process_job(data, frame_indices, output_list):
                 output_list.extend(do_frame_ego_pair(frame_idx, frame_data, ego_id))
     # "returns" to main process through side-effect on output_list
 
-COLUMNS = ["frame", "ego_id", "id", "klasse", "field_pos_x", "field_pos_y", "relative_pos_x", "relative_pos_y"]
+COLUMNS = ["frame", "ego_id", "id", "klasse", "field_pos_x", "field_pos_y", "relative_pos_x", "relative_pos_y", "dist_to_ego"]
 
 # main
 

@@ -82,10 +82,9 @@ class MarioCSVDataset(Dataset):
             (relevant_data.frame == fep.frame) &
             (relevant_data.id != fep.ego_id) &
             (relevant_data.klasse == "robot")
-        ].filter(["id", "relative_pos_x", "relative_pos_y"], axis="columns")
-        other_robots_in_first_frame["sqr_distance"] = other_robots_in_first_frame.relative_pos_x ** 2 + other_robots_in_first_frame.relative_pos_y ** 2
+        ].filter(["id", "relative_pos_x", "relative_pos_y", "dist_to_ego"], axis="columns")
         # there's only gonna be like 13 rows, we can afford a sort
-        closest_robots = other_robots_in_first_frame.sort_values(by="sqr_distance").iloc[:self.number_of_other_robots]
+        closest_robots = other_robots_in_first_frame.sort_values(by="dist_to_ego").iloc[:self.number_of_other_robots]
         
         # track their IDs across the time span
         # extract absolute position of ego robot and relative position of other robots and ball
