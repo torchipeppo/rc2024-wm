@@ -88,42 +88,44 @@ FILES = [
     "German Open 2024 - SPL - Field A - Final Day__998.0.csv",
     "German Open 2024 - SPL - Field A - Final Day__2907.0.csv",
 ]
-PROCESSES = 24
+PROCESSES = 8
 
 
-file_id_no = 0
-print(f"Files completed: {file_id_no} / {len(FILES)}")
+if __name__ == "__main__":
 
-
-for fname in FILES:
-    # would have liked to make this a function, but it appears that internal functions
-    # are incompatible w/ multiptocessing due to pickling
-
-    data = pd.read_csv(
-        fname,
-        names=["frame", "id", "klasse", "color", "image_bbox", "field_pos"],
-        converters={"field_pos": tuple_string_to_numpy}
-    )
-
-    frames = data.frame.unique()
-    ids = data.id.unique()
-
-    def do_egoid_file(ego_id):
-        processed_list = []
-        for frame in frames:
-            frame_data = get_frame(data, frame)
-            if (ego_id in frame_data.id.values) and (select(frame_data, "id", ego_id).klasse == "robot").item():
-                processed_list.extend(do_frame_ego_pair(frame, frame_data, ego_id))
-        if processed_list:
-            processed = pd.concat(processed_list)
-            processed.to_csv(Path(__file__).parent / f"processed_by_gameegoid/{file_id_no}-{ego_id}.csv", index=False)
-
-    pool = multiprocessing.Pool(PROCESSES)
-    progressbar = tqdm.tqdm(total=len(ids))
-    for _ in pool.imap_unordered(do_egoid_file, ids, chunksize=10):
-        progressbar.update()
-    pool.close()
-    pool.join()
-
-    file_id_no += 1
+    file_id_no = 0
     print(f"Files completed: {file_id_no} / {len(FILES)}")
+
+
+    for fname in FILES:
+        # would have liked to make this a function, but it appears that internal functions
+        # are incompatible w/ multiptocessing due to pickling
+
+        data = pd.read_csv(
+            fname,
+            names=["frame", "id", "klasse", "color", "image_bbox", "field_pos"],
+            converters={"field_pos": tuple_string_to_numpy}
+        )
+
+        frames = data.frame.unique()
+        ids = data.id.unique()
+
+        def do_egoid_file(ego_id):
+            processed_list = []
+            for frame in frames:
+                frame_data = get_frame(data, frame)
+                if (ego_id in frame_data.id.values) and (select(frame_data, "id", ego_id).klasse == "robot").item():
+                    processed_list.extend(do_frame_ego_pair(frame, frame_data, ego_id))
+            if processed_list:
+                processed = pd.concat(processed_list)
+                processed.to_csv(Path(__file__).parent / f"processed_by_gameegoid/{file_id_no}-{ego_id}.csv", index=False)
+
+        pool = multiprocessing.Pool(PROCESSES)
+        progressbar = tqdm.tqdm(total=len(ids))
+        for _ in pool.imap_unordered(do_egoid_file, ids, chunksize=10):
+            progressbar.update()
+        pool.close()
+        pool.join()
+
+        file_id_no += 1
+        print(f"Files completed: {file_id_no} / {len(FILES)}")
