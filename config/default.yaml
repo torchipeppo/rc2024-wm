@@ -9,7 +9,7 @@ device_type: ???     # this is set in the same decorator based on the device; th
 
 dataset:
   # _target_: data.MarioCSVDataset
-  csv_path: realized_5-300
+  csv_path: realized_5-150
   # the next ones are loaded from the (fixed) realized dataset config now
   orig_csv_path: ???
   number_of_other_robots: ???  # influences transformer config
@@ -58,7 +58,7 @@ training:
   data_split: 0.95
   batch_size: 64  # partiamo molto ottimisti, vedremo poi quando ci esplode la memoria
   dataloading_workers: 4
-  epochs: 100
+  epochs: 1000
   batches_per_epoch: 100
   #
   transformer:

@@ -89,19 +89,19 @@ class MarioCSVDataset(Dataset):
         # track their IDs across the time span
         # extract absolute position of ego robot and relative position of other robots and ball
         ego_pos = add_missing_frames_then_filter(
-            relevant_data[relevant_data.id == fep.ego_id],
+            relevant_data[relevant_data.id == fep.ego_id].drop_duplicates(subset=["frame"]),
             frame_range,
             ["field_pos_x", "field_pos_y"],
             actually_found_frames=actually_found_frames
         )
         others_pos_list = [add_missing_frames_then_filter(
-            relevant_data[relevant_data.id == the_id],
+            relevant_data[relevant_data.id == the_id].drop_duplicates(subset=["frame"]),
             frame_range,
             ["relative_pos_x", "relative_pos_y"],
             actually_found_frames=actually_found_frames
         ) for the_id in closest_robots.id]
         ball_pos = add_missing_frames_then_filter(
-            relevant_data[relevant_data.klasse == "ball"],
+            relevant_data[relevant_data.klasse == "ball"].drop_duplicates(subset=["frame"]),
             frame_range,
             ["relative_pos_x", "relative_pos_y"],
             actually_found_frames=actually_found_frames

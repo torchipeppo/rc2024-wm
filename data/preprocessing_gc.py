@@ -89,7 +89,7 @@ def handle_egorow(egorow, data, tp_pairs):
 # main
 
 FILES = sorted(Path(__file__).parent.glob("log*ALL.csv"))
-PROCESSES = 8
+PROCESSES = 56
 
 FPS = 30
 BALLAGE_THRESHOLD = 3

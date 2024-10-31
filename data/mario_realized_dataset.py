@@ -11,13 +11,13 @@ class MarioRealizedDataset(Dataset):
             csv_path = Path(__file__).parent / csv_path
         self.csv_path = csv_path
         max_idx = -1
+        self.fnames = []
         for fname in self.csv_path.iterdir():
             if fname.suffix == '.data':
-                max_idx = max(max_idx, int(fname.stem))
-        self.length = max_idx+1
+                self.fnames.append(fname.name)
     
     def __len__(self):
-        return self.length
+        return len(self.fnames)
     
     def __getitem__(self, idx):
-        return torch.load(self.csv_path / f"{idx}.data")
+        return torch.load(self.csv_path / self.fnames[idx])

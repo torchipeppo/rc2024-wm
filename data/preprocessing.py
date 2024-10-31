@@ -88,7 +88,8 @@ FILES = [
     "German Open 2024 - SPL - Field A - Final Day__998.0.csv",
     "German Open 2024 - SPL - Field A - Final Day__2907.0.csv",
 ]
-PROCESSES = 8
+FILES.extend(sorted(Path(".").glob("RoboCup 2023 - SPL - Field *.csv")))
+PROCESSES = 56
 
 
 if __name__ == "__main__":

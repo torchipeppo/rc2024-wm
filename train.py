@@ -90,14 +90,15 @@ def main(conf):
     datasplit_rng.manual_seed(14383421)
     train_len = int(len(dataset) * conf.training.data_split)
     train_dataset, eval_dataset = torch.utils.data.random_split(dataset, [train_len, len(dataset)-train_len], generator=datasplit_rng)
-    train_dataloader = DataLoader(train_dataset, batch_size=conf.training.batch_size, shuffle=True, drop_last=True, num_workers=conf.training.dataloading_workers)
+    train_dataloader = DataLoader(train_dataset, batch_size=conf.training.batch_size, shuffle=True, drop_last=True)#, num_workers=conf.training.dataloading_workers)
     train_iterator = utils.infiniter(train_dataloader)
-    eval_dataloader = DataLoader(eval_dataset, batch_size=conf.eval.batch_size, shuffle=True, drop_last=True, num_workers=conf.training.dataloading_workers)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=conf.eval.batch_size, shuffle=True, drop_last=True)#, num_workers=conf.training.dataloading_workers)
     eval_iterator = utils.infiniter(eval_dataloader)
     
     optimizer = transformer.configure_optimizers(**(OmegaConf.to_object(conf.training.transformer)), device_type=conf.device_type)
     
     global_step = 0
+    best_loss = np.inf
     for epoch_idx in range(conf.training.epochs):
         for batch_idx in range(conf.training.batches_per_epoch):
             print(f"epoch {epoch_idx}  batch {batch_idx}", end="")
@@ -143,7 +144,6 @@ def main(conf):
                 logger.debug("PRED TARG")
                 logger.debug(f"See below\n{torch.stack((pred_tokens[0], tokenized_target[0]), dim=1)}")
                 
-                # TODO metrica: distanza tra predizione e GT (sulla griglia discretizzata)
                 # Note: they are both discretized, but grid is just about the spaces on the grid
                 # while field is the center of each grid cell (in millimeters)
                 pred_grid_pos, pred_field_pos = tokenizer.token_to_buckets(pred_tokens)
@@ -175,6 +175,11 @@ def main(conf):
                     'reserved_tokens': RESERVED_TOKENS,
                 }
                 torch.save(checkpoint, "rc2024-wm.pt")
+                if loss < best_loss:
+                    best_loss = loss
+                    torch.save(checkpoint, "rc2024-wm_BEST.pt")
+                if epoch_idx % 100 == 0:
+                    torch.save(checkpoint, f"rc2024-wm_ep{epoch_idx}.pt")
 
 
 if __name__ == "__main__":
