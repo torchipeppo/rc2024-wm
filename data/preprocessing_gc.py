@@ -1,8 +1,9 @@
 import pandas as pd
 import multiprocessing
 import math
-from pathlib import Path
 import tqdm
+
+from CONSTANTS import DATA_DIR
 
 def tp2id(team, player):
     return team*100 + player
@@ -88,7 +89,7 @@ def handle_egorow(egorow, data, tp_pairs):
 
 # main
 
-FILES = sorted(Path(__file__).parent.glob("log*ALL.csv"))
+FILES = sorted(DATA_DIR.glob("log*ALL.csv"))
 PROCESSES = 56
 
 FPS = 30
@@ -101,7 +102,7 @@ print(f"Files completed: {file_id_no} / {len(FILES)}")
 
 for fname in FILES:
     # would have liked to make this a function, but it appears that internal functions
-    # are incompatible w/ multiptocessing due to pickling
+    # are incompatible w/ multiprocessing due to pickling
 
     data = pd.read_csv(fname)
     # filter
@@ -123,7 +124,7 @@ for fname in FILES:
                 processed_list.append(handle_egorow(row, data, tp_pairs))
         if processed_list:
             processed = pd.concat(processed_list)
-            processed.to_csv(Path(__file__).parent / f"processed_by_gameegoid/{file_id_no}-{ego_id}.csv", index=False)
+            processed.to_csv(DATA_DIR / f"processed_by_gameegoid/{file_id_no}-{ego_id}.csv", index=False)
 
     pool = multiprocessing.Pool(PROCESSES)
     progressbar = tqdm.tqdm(total=len(tp_pairs))
@@ -131,6 +132,7 @@ for fname in FILES:
         progressbar.update()
     pool.close()
     pool.join()
+    progressbar.close()
 
     file_id_no += 1
     print(f"Files completed: {file_id_no} / {len(FILES)}")
