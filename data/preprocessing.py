@@ -3,9 +3,12 @@ import pandas as pd
 import ast
 import tqdm
 import multiprocessing
+from pathlib import Path
 import math
 
-from CONSTANTS import DATA_DIR
+# i.e. a directory called "data" in the parent folder to this repo's directory
+# note to self: parents list is ordered from direct father to root, so no need for negative indices
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
 def select(data, col_name, col_value):
     return data.loc[data[col_name] == col_value]

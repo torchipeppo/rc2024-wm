@@ -6,7 +6,9 @@ import tqdm
 import multiprocessing
 from mario_csv_dataset import MarioCSVDataset
 
-from CONSTANTS import DATA_DIR
+# i.e. a directory called "data" in the parent folder to this repo's directory
+# note to self: parents list is ordered from direct father to root, so no need for negative indices
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
 # se faccio più di una variante, teniamo la storia dei realized_dataset_name nei commenti
 REALIZED_DATASET_NAME = "realized_5-150"
@@ -17,7 +19,7 @@ CONF_PATH = Path(__file__).parent / f"{REALIZED_DATASET_NAME}.conf.yaml"
 conf = OmegaConf.load(CONF_PATH)
 
 TARGET_DIR.mkdir()
-shutil.copy(CONF_PATH, TARGET_DIR)
+shutil.copy(CONF_PATH, TARGET_DIR / "config.yaml")
 (TARGET_DIR/"data").mkdir()
 
 print("Loading MarioCSVDataset, this may take a while...")

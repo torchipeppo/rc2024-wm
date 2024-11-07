@@ -2,7 +2,9 @@ import torch
 from torch.utils.data import Dataset
 from pathlib import Path
 
-from CONSTANTS import DATA_DIR
+# i.e. a directory called "data" in the parent folder to this repo's directory
+# note to self: parents list is ordered from direct father to root, so no need for negative indices
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
 class MarioRealizedDataset(Dataset):
     def __init__(self, csv_path):

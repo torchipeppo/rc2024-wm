@@ -16,6 +16,8 @@ from data import MarioCSVDataset, MarioRealizedDataset
 import utils
 import metrics
 
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+
 # index in this list corresponds to the token ID
 # Note to self: adding new reserved tokens will require a (hopefully minor) overhaul of the tokenizer.
 RESERVED_TOKENS = ["UNKNOWN"]
@@ -30,7 +32,7 @@ def hydra_autohandle_derived_configs(f):
         # device type based on device
         conf.device_type = 'cuda' if 'cuda' in conf.device else 'cpu'
         
-        dataset_conf = OmegaConf.load(Path(__file__).parent / 'data' / conf.dataset.csv_path / "config.yaml")
+        dataset_conf = OmegaConf.load(DATA_DIR / conf.dataset.csv_path / "config.yaml")
         for key in dataset_conf:
             print(dataset_conf.keys())
             conf.dataset[key] = dataset_conf[key]
@@ -151,6 +153,10 @@ def main(conf):
                 true_field_pos = einops.rearrange(batch_target, "batch time object coords -> batch (time object) coords")
                 abs_token_mask = tokenized_target - tokenizer.num_reserved_tokens < tokenizer.x_buckets*tokenizer.y_buckets
                                     # TODO tokenizer.token_is_abs
+                                    # i.e. trasformare la condizione enunciata per esteso qui sopra
+                                    # in una funzione chiamabile del tokenizer,
+                                    # per leggibilità/modularità/etc
+                                    # (i.e. non è una feature mancante, solo pulizia/stile)
                 # euclidean distance of field positions
                 # don't count out-of-range predictions in this particular metric
                 pfp = torch.where(pred_field_pos.isinf(), np.nan, pred_field_pos)

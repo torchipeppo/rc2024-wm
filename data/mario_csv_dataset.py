@@ -7,7 +7,9 @@ import numpy as np
 import pandas as pd
 import einops
 
-from CONSTANTS import DATA_DIR
+# i.e. a directory called "data" in the parent folder to this repo's directory
+# note to self: parents list is ordered from direct father to root, so no need for negative indices
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
 FPS = 30
 
