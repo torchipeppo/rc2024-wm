@@ -7,6 +7,10 @@ import numpy as np
 import pandas as pd
 import einops
 
+# i.e. a directory called "data" in the parent folder to this repo's directory
+# note to self: parents list is ordered from direct father to root, so no need for negative indices
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+
 FPS = 30
 
 # a defaultdict that supplies the key to the factory
@@ -23,9 +27,10 @@ class MarioCSVDataset(Dataset):
         assert time_span >= min_time_span
         if not isinstance(csv_path, Path):
             csv_path = Path(csv_path)
-        # default to searching in the same directory as this Python file (so maybe I won't need path_constants this time)
+        # default to searching in a specific folder relative to this Python file
+        # (so maybe I won't need path_constants this time)
         if not csv_path.is_absolute():
-            csv_path = Path(__file__).parent / csv_path
+            csv_path = DATA_DIR / csv_path
         
         # +1 b/c we'll also want to fetch a target sequence, which is shifted by 1 wrt input
         self.frames_to_fetch = time_span + 1

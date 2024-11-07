@@ -6,6 +6,10 @@ import multiprocessing
 from pathlib import Path
 import math
 
+# i.e. a directory called "data" in the parent folder to this repo's directory
+# note to self: parents list is ordered from direct father to root, so no need for negative indices
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+
 def select(data, col_name, col_value):
     return data.loc[data[col_name] == col_value]
 
@@ -71,28 +75,32 @@ def tuple_string_to_numpy(s):
     a = np.array(t)
     return a
 
-def process_job(data, frame_indices, output_list):
-    for frame_idx in tqdm.tqdm(frame_indices):
-        frame_data = get_frame(data, frame_idx)
-        for ego_id in frame_data.id:
-            if (select(frame_data, "id", ego_id).klasse == "robot").item():
-                output_list.extend(do_frame_ego_pair(frame_idx, frame_data, ego_id))
-    # "returns" to main process through side-effect on output_list
+# TODO looks unused, delete if still true after a while
+# def process_job(data, frame_indices, output_list):
+#     for frame_idx in tqdm.tqdm(frame_indices):
+#         frame_data = get_frame(data, frame_idx)
+#         for ego_id in frame_data.id:
+#             if (select(frame_data, "id", ego_id).klasse == "robot").item():
+#                 output_list.extend(do_frame_ego_pair(frame_idx, frame_data, ego_id))
+#     # "returns" to main process through side-effect on output_list
 
 COLUMNS = ["frame", "ego_id", "id", "klasse", "field_pos_x", "field_pos_y", "relative_pos_x", "relative_pos_y", "dist_to_ego"]
 
 # main
 
 FILES = [
-    "unknown-game.csv",
-    "German Open 2024 - SPL - Field A - Final Day__998.0.csv",
-    "German Open 2024 - SPL - Field A - Final Day__2907.0.csv",
+    DATA_DIR / "unknown-game.csv",
+    DATA_DIR / "German Open 2024 - SPL - Field A - Final Day__998.0.csv",
+    DATA_DIR / "German Open 2024 - SPL - Field A - Final Day__2907.0.csv",
 ]
-FILES.extend(sorted(Path(".").glob("RoboCup 2023 - SPL - Field *.csv")))
+FILES.extend(sorted(DATA_DIR.glob("RoboCup 2023 - SPL - Field *.csv")))
 PROCESSES = 56
 
 
 if __name__ == "__main__":
+
+    PROCESSED_DIR = DATA_DIR / "processed_by_gameegoid"
+    PROCESSED_DIR.mkdir(exist_ok=True)
 
     file_id_no = 0
     print(f"Files completed: {file_id_no} / {len(FILES)}")
@@ -119,7 +127,7 @@ if __name__ == "__main__":
                     processed_list.extend(do_frame_ego_pair(frame, frame_data, ego_id))
             if processed_list:
                 processed = pd.concat(processed_list)
-                processed.to_csv(Path(__file__).parent / f"processed_by_gameegoid/{file_id_no}-{ego_id}.csv", index=False)
+                processed.to_csv(PROCESSED_DIR / f"{file_id_no}-{ego_id}.csv", index=False)
 
         pool = multiprocessing.Pool(PROCESSES)
         progressbar = tqdm.tqdm(total=len(ids))
@@ -127,6 +135,7 @@ if __name__ == "__main__":
             progressbar.update()
         pool.close()
         pool.join()
+        progressbar.close()
 
         file_id_no += 1
         print(f"Files completed: {file_id_no} / {len(FILES)}")
