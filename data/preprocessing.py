@@ -53,6 +53,7 @@ def do_frame_ego_pair(frame_idx, frame_data, ego_id):
     for other_id in frame_data.id:
         other_row = select(frame_data, "id", other_id)
         if trust_ball or other_row.klasse.item() != "ball":
+            # (this data comes from video analysis, so all positions are in global coordinates)
             other_pos = process_field_pos(other_row.field_pos)
             other_pos_relative = process_field_pos(other_row.field_pos, relative_to=ego_row.field_pos)
             dist_to_ego = math.sqrt(other_pos_relative[0]**2 + other_pos_relative[1]**2)
@@ -75,25 +76,20 @@ def tuple_string_to_numpy(s):
     a = np.array(t)
     return a
 
-# TODO looks unused, delete if still true after a while
-# def process_job(data, frame_indices, output_list):
-#     for frame_idx in tqdm.tqdm(frame_indices):
-#         frame_data = get_frame(data, frame_idx)
-#         for ego_id in frame_data.id:
-#             if (select(frame_data, "id", ego_id).klasse == "robot").item():
-#                 output_list.extend(do_frame_ego_pair(frame_idx, frame_data, ego_id))
-#     # "returns" to main process through side-effect on output_list
-
 COLUMNS = ["frame", "ego_id", "id", "klasse", "field_pos_x", "field_pos_y", "relative_pos_x", "relative_pos_y", "dist_to_ego"]
 
 # main
 
+# leaving the construction of the FILES list like this in order not to change
+# the order of the files, and thus their ID numbers, for this version of the dataset.
+# But if I ever make an expanded version, we can definitely switch to a much simpler:
+# FILES = sorted((DATA_DIR/"MARIO_DATA").glob("*.csv"))
 FILES = [
-    DATA_DIR / "unknown-game.csv",
-    DATA_DIR / "German Open 2024 - SPL - Field A - Final Day__998.0.csv",
-    DATA_DIR / "German Open 2024 - SPL - Field A - Final Day__2907.0.csv",
+    DATA_DIR/"MARIO_DATA" / "unknown-game.csv",
+    DATA_DIR/"MARIO_DATA" / "German Open 2024 - SPL - Field A - Final Day__998.0.csv",
+    DATA_DIR/"MARIO_DATA" / "German Open 2024 - SPL - Field A - Final Day__2907.0.csv",
 ]
-FILES.extend(sorted(DATA_DIR.glob("RoboCup 2023 - SPL - Field *.csv")))
+FILES.extend(sorted((DATA_DIR/"MARIO_DATA").glob("RoboCup 2023 - SPL - Field *.csv")))
 PROCESSES = 56
 
 

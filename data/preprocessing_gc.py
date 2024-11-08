@@ -25,6 +25,7 @@ def handle_egorow(egorow, data, tp_pairs):
     partial_processed_list = []
 
     # one data row for each robot
+    # (robot estimates its own position in absolute coordinates)
     ego_x = egorow.x
     ego_y = egorow.y
     partial_processed_list.append(dict(
@@ -40,12 +41,27 @@ def handle_egorow(egorow, data, tp_pairs):
     ))
 
     # one data row for the ball
+    # (robot estimates ball in local coordinates, relative to both position and orientation)
     if (0 < egorow.ballage) and (egorow.ballage <= BALLAGE_THRESHOLD):
         ball_x_relative = egorow.ballx
         ball_y_relative = egorow.bally
-        ball_x = ball_x_relative + ego_x
-        ball_y = ball_y_relative + ego_y
         dist_to_ego = math.sqrt(ball_x_relative**2 + ball_y_relative**2)
+
+        # robots tell the GC the ball position relative to their own position and orientation
+        # so, converting this local position to field coordinates requires translation and rotation
+        # this formula is the very same the B-Human framework uses for Pose2f::operator*
+        # (which itself is most likely taken from the eigen library).
+        c = math.cos(egorow.theta)
+        s = math.sin(egorow.theta)
+        ball_x = ball_x_relative * c - ball_y_relative * s + ego_x
+        ball_y = ball_x_relative * s + ball_y_relative * c + ego_y
+
+        # but it's not over yet: in order to truly align with the MARIO data,
+        # we want the relative ball position to ONLY be relative to the robot's position
+        # (b/c MARIO can't get the orientation from the video)
+        ball_x_relative = ball_x - ego_x
+        ball_y_relative = ball_y - ego_y
+
         partial_processed_list.append(dict(
             frame=frame,
             ego_id=ego_id,
@@ -59,6 +75,7 @@ def handle_egorow(egorow, data, tp_pairs):
         ))
     
     # now for everyone else
+    # (we take other robots' position from their own estimates, so they're in global coords)
     for tp in tp_pairs:
         if tp2id(*tp) != ego_id:
             # selector = relevant_data.team == tp[0] and relevant_data.player == tp[1]
@@ -92,7 +109,7 @@ def handle_egorow(egorow, data, tp_pairs):
 
 # main
 
-FILES = sorted(DATA_DIR.glob("log*ALL.csv"))
+FILES = sorted((DATA_DIR/"GC_DATA").glob("log*ALL.csv"))
 PROCESSES = 56
 
 FPS = 30
