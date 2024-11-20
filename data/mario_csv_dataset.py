@@ -39,7 +39,7 @@ class MarioCSVDataset(Dataset):
         frame_ego_pairs_list = []
         
         for f in csv_path.iterdir():
-            assert f.suffix == ".csv"
+            assert f.suffix == ".csv", f
             gameegoid = f.stem
             data = pd.read_csv(f).sort_values(by=["frame", "ego_id", "id"])
             max_frame = max(data.frame.unique())

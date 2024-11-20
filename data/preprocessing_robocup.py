@@ -3,6 +3,9 @@ import json
 from enum import Enum
 import math
 import struct
+import pandas as pd
+import tqdm
+import preprocessing_lib_obstacles as lib_obstacles
 
 # i.e. a directory called "data" in the parent folder to this repo's directory
 # note to self: parents list is ordered from direct father to root, so no need for negative indices
@@ -37,41 +40,67 @@ class DataEntryIndex(Enum):
     TeamBall = 104
     TeamBallVel = 106
     Suca3 = 108
-class ObstacleType(Enum):
-    Nothing = -1
-    Goalpost = 0
-    Unknown = 1
-    SomeRobot = 2
-    Opponent = 3
-    Teammate = 4
-    FallenSomeRobot = 5
-    FallenOpponent = 6
-    FallenTeammate = 7
-ROBOT_TYPES = {
-    ObstacleType.SomeRobot.value,
-    ObstacleType.Opponent.value,
-    ObstacleType.Teammate.value,
-    ObstacleType.FallenSomeRobot.value,
-    ObstacleType.FallenOpponent.value,
-    ObstacleType.FallenTeammate.value,
-}
 
 # main
 
 FILES = sorted((DATA_DIR/"ROBOCUP_TEST_DATA").rglob("*.jsonl"))
 PROCESSES = 24
 
+BALL_ID = 0
 EGO_ID = 1  # this can be constant since we always have only the same controlled robot in these logs
+FIRST_OBSTACLE_ID = 2
+
 BALLAGE_THRESHOLD = 3  # ball age is in seconds...
 OBSTACLEAGE_THRESHOLD = 4000  # ...but obstacle timestamps are in milliseconds
                             # keeping this more lenient than I'd like
                             # b/c I'm actually reading floats from the logs,
                             # due to an external oversight
 
-file_id_no = 0
-print(f"Files completed: {file_id_no} / {len(FILES)}")
+# this formula is the very same the B-Human framework uses for Pose2f::operator*
+# (which itself is most likely taken from the eigen library).
+def rel2glob_with_theta(x_relative, y_relative, ego_x, ego_y, ego_theta):
+    c = math.cos(ego_theta)
+    s = math.sin(ego_theta)
+    x = x_relative * c - y_relative * s + ego_x
+    y = x_relative * s + y_relative * c + ego_y
+    return x, y
 
-def handle_line(record, frame):
+def get_obstacle_list(record):
+    obstacles_list = []
+    obstacles_len = record[DataEntryIndex.CurrentObstacleSize.value]
+    ego_x = record[DataEntryIndex.PosX.value]
+    ego_y = record[DataEntryIndex.PosY.value]
+    ego_theta = record[DataEntryIndex.Theta.value]
+    for i in range(obstacles_len):
+        # see the ball part for all the comments
+        x_original = record[DataEntryIndex.ObstacleCenterX.value + i]
+        y_original = record[DataEntryIndex.ObstacleCenterY.value + i]
+        x_absolute, y_absolute = rel2glob_with_theta(x_original, y_original, ego_x, ego_y, ego_theta)
+        x_relative = x_absolute - ego_x
+        y_relative = y_absolute - ego_y
+        # oh, and due to an external oversight, the JSONL logs actually store
+        # the timestamp as though its byte representation was interpreted as a float,
+        # not an unsigned int, so I need extra storage to store the "correct" timestamp.
+        last_seen = record[DataEntryIndex.ObstacleLastSeen.value + i]
+        # still putting an "if" here for future-proofing,
+        # in case I use this again and the logs are fixed by then
+        if type(last_seen) == float:
+            # interpret last_seen's bytes as the unsigned int they should be
+            last_seen = struct.unpack("<I", struct.pack("<f", last_seen))[0]
+        
+        obstacles_list.append(lib_obstacles.Obstacle(
+            the_type=record[DataEntryIndex.ObstacleTypes.value + i],
+            x_original=x_original,
+            y_original=y_original,
+            x_absolute=x_absolute,
+            y_absolute=y_absolute,
+            x_relative=x_relative,
+            y_relative=y_relative,
+            last_seen=last_seen,
+        ))
+    return obstacles_list
+
+def handle_line(record, frame, tracker):
     partial_processed_list = []
 
     # ego row
@@ -100,13 +129,8 @@ def handle_line(record, frame):
 
         # BallModel is relative to their own position and orientation
         # so, converting this local position to field coordinates requires translation and rotation
-        # this formula is the very same the B-Human framework uses for Pose2f::operator*
-        # (which itself is most likely taken from the eigen library).
-        theta = record[DataEntryIndex.Theta.value]
-        c = math.cos(theta)
-        s = math.sin(theta)
-        ball_x = ball_x_relative * c - ball_y_relative * s + ego_x
-        ball_y = ball_x_relative * s + ball_y_relative * c + ego_y
+        ego_theta = record[DataEntryIndex.Theta.value]
+        ball_x, ball_y = rel2glob_with_theta(ball_x_relative, ball_y_relative, ego_x, ego_y, ego_theta)
 
         # but it's not over yet: in order to truly align with the MARIO data,
         # we want the relative ball position to ONLY be relative to the robot's position
@@ -128,52 +152,52 @@ def handle_line(record, frame):
     
     # now for everyone else
     # (there we rely on data from the robot's ObstacleModel, which works in local coordinates)
-    obstacles_len = record[DataEntryIndex.CurrentObstacleSize.value]
-    # filter: only consider robots (not goalposts)
-    robot_obstacle_idxs = []
-    for i in range(obstacles_len):
-        obstacle_type = record[DataEntryIndex.ObstacleTypes.value + i]
-        if obstacle_type in ROBOT_TYPES:
-            robot_obstacle_idxs.append(i)
+    # (get_obstacle_list already does all the things we'd do for the ball)
+    obstacles = get_obstacle_list(record)
+    filtered_obstacles_idxs = lib_obstacles.get_filtered_obstacles(obstacles, OBSTACLEAGE_THRESHOLD)
 
-    if len(robot_obstacle_idxs) > 0:
-        # filter: only consider recent ddetections
-        # but...
-        # turns out the robot was instructed to send the absolute timestamp
-        # of last detection of each obstacle, but no way to get the "obstacle age"
-        # oh well, I'll do the best I can and exclude obstacles that are much older
-        # than the most recent one.
-        most_recent_obstacle_seen = -1
-        # oh, and due to an external oversight, the JSONL logs actually store
-        # the timestamp as though its byte representation was interpreted as a float,
-        # not an unsigned int, so I need extra storage to store the "correct" timestamp.
-        obstacles_last_seen = dict()
-        for i in robot_obstacle_idxs:
-            time_seen = record[DataEntryIndex.ObstacleLastSeen.value]
-            # putting an "if" is for future-proofing,
-            # in case I use this again and the logs are fixed by then
-            if type(time_seen) == float:
-                # interpret time_seen's bytes as the unsigned int they should be
-                time_seen = struct.unpack("<I", struct.pack("<f", time_seen))[0]
-            obstacles_last_seen[i] = time_seen
-            most_recent_obstacle_seen = max(most_recent_obstacle_seen, time_seen)
+    # now for the actual stuff to do
+    if len(filtered_obstacles_idxs) > 0:
+        tracked_obstacles = tracker.track(obstacles)
         
-        # now for the actual stuff to do (while filtering for recency)
-        for i in robot_obstacle_idxs:
-            obstacle_age_approx = most_recent_obstacle_seen - obstacles_last_seen[i]
-            if obstacle_age_approx < OBSTACLEAGE_THRESHOLD:
-                # TODO obstacle tracking (yeeeeee)
+        for obs in tracked_obstacles:
+            dist_to_ego = math.sqrt(obs.x_relative**2 + obs.y_relative**2)
+            partial_processed_list.append(dict(
+                frame=frame,
+                ego_id=EGO_ID,
+                id=obs.the_id,
+                klasse="robot",
+                field_pos_x=obs.x_absolute,
+                field_pos_y=obs.y_absolute,
+                relative_pos_x=obs.x_relative,
+                relative_pos_y=obs.y_relative,
+                dist_to_ego=dist_to_ego,
+            ))
+
+    return pd.DataFrame(partial_processed_list)
 
 
 
 
+
+file_id_no = 0
+print(f"Files completed: {file_id_no} / {len(FILES)}")
 
 def do_stuff(fname):
     with open(fname, "r") as f:
         json_lines = f.readlines()
     
+    tracker = lib_obstacles.HungarianTracker(FIRST_OBSTACLE_ID)
+    
     processed_list = []
     
-    for i in len(json_lines):
+    for i in tqdm.tqdm(range(len(json_lines))):
         record = json.loads(json_lines[i])
-        processed_list.extend(handle_line(record, i))
+        processed_list.append(handle_line(record, i, tracker))
+    
+    if len(processed_list) > 0:
+        processed = pd.concat(processed_list)
+        processed.to_csv(DATA_DIR / f"processed_real_test_set/{file_id_no}.csv", index=False)
+
+for fname in FILES:
+    do_stuff(fname)
