@@ -128,7 +128,7 @@ class HungarianTracker:
             obs = obstacles[i]
             other_i = find_perfect_match_idx(obs, prev_obstacles, untracked_prev_idxs)
             if other_i is not None:
-                tracked_obstacles[i].the_id = prev_obstacles[other_i]
+                tracked_obstacles[i].the_id = prev_obstacles[other_i].the_id
                 untracked_idxs.remove(i)
                 untracked_prev_idxs.remove(other_i)
             else:
@@ -161,13 +161,13 @@ class HungarianTracker:
         funyarinpa_matching_pairs = []  # name reminds the order to any readers who don't know what the hell is a funyarinpa
         if dm_rows <= dm_cols:
             # all good, we get: funya = assignments[rinpa], with -1 meaning no assignment
-            assignments = hungarian(distance_matrix, INVALID_WEIGHT)
+            assignments = hungarian(distance_matrix)
             for rinpa in range(len(assignments)):
                 funya = assignments[rinpa]
                 funyarinpa_matching_pairs.append((funya,rinpa))
         else:
             # gotta transpose the matrix, and thus we get: rinpa = assignments[funya], with -1 meaning no assignment
-            assignments = hungarian(distance_matrix.transpose(), INVALID_WEIGHT)
+            assignments = hungarian(distance_matrix.transpose())
             for funya in range(len(assignments)):
                 rinpa = assignments[funya]
                 funyarinpa_matching_pairs.append((funya,rinpa))
@@ -183,17 +183,18 @@ class HungarianTracker:
                 if distance_matrix[funya,rinpa] < INVALID_WEIGHT:
                     i = untracked_idxs[funya]
                     other_i = untracked_prev_idxs[rinpa]
-                    idx_matching_pairs.append((i, j))
+                    idx_matching_pairs.append((i, other_i))
         # now we're done with the double index set forever
         # assign ids to matched obstacles
         for i, other_i in idx_matching_pairs:
-            tracked_obstacles[i].the_id = prev_obstacles[other_i]
+            tracked_obstacles[i].the_id = prev_obstacles[other_i].the_id
             untracked_idxs.remove(i)  # removal here is why I need this second loop
             untracked_prev_idxs.remove(other_i)  # same here
 
         # final: unmatched obstacles get assigned a new id
-        for i in untracked_idxs:
+        for i in untracked_idxs.copy():
             tracked_obstacles[i].the_id = self._get_new_id()
+            untracked_idxs.remove(i)
 
         assert len(untracked_idxs)==0
 

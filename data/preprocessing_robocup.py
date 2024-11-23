@@ -12,34 +12,32 @@ import preprocessing_lib_obstacles as lib_obstacles
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
 class DataEntryIndex(Enum):
-    Suca = 0
-    Header = 1
-    Version = 2
-    PlayerNum = 3
-    TeamNum = 4
-    Fallen = 5
-    PosX = 6
-    PosY = 7
-    Theta = 8
-    BallAge = 9
-    BallPosX = 10
-    BallPosY = 11
-    NumDataBytes = 12
-    PlayerRole = 13
-    CurrentObstacleSize = 14
-    ObstacleTypes = 15
-    ObstacleCenterX = 35
-    ObstacleCenterY = 55
-    ObstacleLastSeen = 75
-    MessageBudget = 95
-    SecsRemaining = 96
-    ArmContact = 97
-    ArmContactPos = 99
-    ArmTimeOfLastContact = 101
-    Suca2 = 103
-    TeamBall = 104
-    TeamBallVel = 106
-    Suca3 = 108
+    Version = 2-2
+    PlayerNum = 3-2
+    TeamNum = 4-2
+    Fallen = 5-2
+    PosX = 6-2
+    PosY = 7-2
+    Theta = 8-2
+    BallAge = 9-2
+    BallPosX = 10-2
+    BallPosY = 11-2
+    NumDataBytes = 12-2
+    PlayerRole = 13-2
+    CurrentObstacleSize = 14-2
+    ObstacleTypes = 15-2
+    ObstacleCenterX = 35-2
+    ObstacleCenterY = 55-2
+    ObstacleLastSeen = 75-2
+    MessageBudget = 95-2
+    SecsRemaining = 96-2
+    ArmContact = 97-2
+    ArmContactPos = 99-2
+    ArmTimeOfLastContact = 101-2
+    Suca2 = 103-2
+    TeamBall = 104-2
+    TeamBallVel = 106-2
+    Suca3 = 108-2
 
 # main
 
@@ -180,10 +178,9 @@ def handle_line(record, frame, tracker):
 
 
 
-file_id_no = 0
-print(f"Files completed: {file_id_no} / {len(FILES)}")
 
 def do_stuff(fname):
+    print(fname)
     with open(fname, "r") as f:
         json_lines = f.readlines()
     
@@ -199,5 +196,11 @@ def do_stuff(fname):
         processed = pd.concat(processed_list)
         processed.to_csv(DATA_DIR / f"processed_real_test_set/{file_id_no}.csv", index=False)
 
+
+
+file_id_no = 0
+
 for fname in FILES:
+    print(f"Files completed: {file_id_no} / {len(FILES)}")
     do_stuff(fname)
+    file_id_no += 1

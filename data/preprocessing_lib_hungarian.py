@@ -22,37 +22,36 @@ If we use that module in RoboCup 2025, it'll be released by October that year.
 """
 
 import sys
+import numpy as np
 
-def hungarian(C, INFINITY=sys.float_info.max):
-    J = C.shape[0]  # ROWS
-    W = C.shape[1]  # COLS
+def hungarian(cost_matrix: np.ndarray) -> list:
+    J, W = cost_matrix.shape
     assert J <= W, "transpose pls"
 
-    # Warning!! The w-th worker is added just for the sake of implementation, its value is not actually meaningful 
-    job = [-1 for _ in range(W+1)]  # job[w] = job assigned to w-th worker
+    job = [-1] * (W + 1)  # job[w] = job assigned to the w-th worker
+    ys = np.zeros(J)  # Job potentials
+    yt = np.zeros(W + 1)  # Worker potentials
+    assignments = [-1] * W  # To store assignments
 
-    ys = [0 for _ in range(J)]  # Job potentials
-    yt = [0 for _ in range(W+1)]  # Worker potentials
-
-    assignments = [-1 for _ in range(W)]  # Vector to store assignments
+    inf = np.inf
 
     for j_cur in range(J):
         w_cur = W
         job[w_cur] = j_cur
 
-        min_to = [INFINITY for _ in range(W)]
-        prv = [-1 for _ in range(W)]  # Previous worker on alternating path
-        in_Z = [False for _ in range(W)]  # Whether worker is in Z
+        min_to = np.full(W, inf)
+        prv = [-1] * W  # Previous worker on alternating path
+        in_Z = [False] * (W + 1)  # Whether worker is in Z
 
-        while job[w_cur] != -1:   # Runs at most j_cur + 1 times
+        while job[w_cur] != -1:  # Runs at most j_cur + 1 times
             in_Z[w_cur] = True
             j = job[w_cur]
-            delta = INFINITY
+            delta = inf
             w_next = -1
 
             for w in range(W):
                 if not in_Z[w]:
-                    reduced_cost = C[j, w] - ys[j] - yt[w]
+                    reduced_cost = cost_matrix[j, w] - ys[j] - yt[w]
                     if reduced_cost < min_to[w]:
                         min_to[w] = reduced_cost
                         prv[w] = w_cur
@@ -63,18 +62,18 @@ def hungarian(C, INFINITY=sys.float_info.max):
             for w in range(W):
                 if in_Z[w]:
                     ys[job[w]] += delta  # Update potentials for assigned jobs
-                    yt[w] -= delta       # Update potential for current worker
+                    yt[w] -= delta  # Update potential for current worker
                 else:
-                    min_to[w] -= delta   # Update minimum reduced cost
-            w_cur = w_next;  # Move to the next worker
+                    min_to[w] -= delta  # Update minimum reduced cost
+            w_cur = w_next  # Move to the next worker
 
         # Update assignments along alternating path
         while w_cur != W:
             w = prv[w_cur]
             job[w_cur] = job[w]
             w_cur = w
-        
 
     for w in range(W):
-        assignments[w] = job[w]; 
-    return assignments; 
+        assignments[w] = job[w]
+
+    return assignments
