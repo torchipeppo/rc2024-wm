@@ -5,7 +5,7 @@ import math
 import struct
 import pandas as pd
 import tqdm
-import preprocessing_lib_obstacles as lib_obstacles
+import lib.preprocessing_lib_obstacles as lib_obstacles
 
 # i.e. a directory called "data" in the parent folder to this repo's directory
 # note to self: parents list is ordered from direct father to root, so no need for negative indices

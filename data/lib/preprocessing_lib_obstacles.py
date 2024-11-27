@@ -4,7 +4,7 @@ from copy import deepcopy
 import math
 import numpy as np
 
-from preprocessing_lib_hungarian import hungarian
+from lib.preprocessing_lib_hungarian import hungarian
 
 class ObstacleType(Enum):
     Nothing = -1
