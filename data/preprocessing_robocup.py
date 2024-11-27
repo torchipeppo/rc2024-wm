@@ -54,26 +54,15 @@ OBSTACLEAGE_THRESHOLD = 4000  # ...but obstacle timestamps are in milliseconds
                             # b/c I'm actually reading floats from the logs,
                             # due to an external oversight
 
-# this formula is the very same the B-Human framework uses for Pose2f::operator*
-# (which itself is most likely taken from the eigen library).
-def rel2glob_with_theta(x_relative, y_relative, ego_x, ego_y, ego_theta):
-    c = math.cos(ego_theta)
-    s = math.sin(ego_theta)
-    x = x_relative * c - y_relative * s + ego_x
-    y = x_relative * s + y_relative * c + ego_y
-    return x, y
-
 def get_obstacle_list(record):
     obstacles_list = []
     obstacles_len = record[DataEntryIndex.CurrentObstacleSize.value]
     ego_x = record[DataEntryIndex.PosX.value]
     ego_y = record[DataEntryIndex.PosY.value]
-    ego_theta = record[DataEntryIndex.Theta.value]
     for i in range(obstacles_len):
         # see the ball part for all the comments
-        x_original = record[DataEntryIndex.ObstacleCenterX.value + i]
-        y_original = record[DataEntryIndex.ObstacleCenterY.value + i]
-        x_absolute, y_absolute = rel2glob_with_theta(x_original, y_original, ego_x, ego_y, ego_theta)
+        x_absolute = record[DataEntryIndex.ObstacleCenterX.value + i]
+        y_absolute = record[DataEntryIndex.ObstacleCenterY.value + i]
         x_relative = x_absolute - ego_x
         y_relative = y_absolute - ego_y
         # oh, and due to an external oversight, the JSONL logs actually store
@@ -88,8 +77,6 @@ def get_obstacle_list(record):
         
         obstacles_list.append(lib_obstacles.Obstacle(
             the_type=record[DataEntryIndex.ObstacleTypes.value + i],
-            x_original=x_original,
-            y_original=y_original,
             x_absolute=x_absolute,
             y_absolute=y_absolute,
             x_relative=x_relative,
@@ -118,23 +105,18 @@ def handle_line(record, frame, tracker):
     ))
 
     # ball row
-    # (robot estimates ball in local coordinates, relative to both position and orientation)
+    # (for our Shared Autonomy Challenge purposes, it was sent/logged as absolute coordinates)
     ball_age = record[DataEntryIndex.BallAge.value]
     if (0 < ball_age) and (ball_age <= BALLAGE_THRESHOLD):
-        ball_x_relative = record[DataEntryIndex.BallPosX.value]
-        ball_y_relative = record[DataEntryIndex.BallPosY.value]
-        dist_to_ego = math.sqrt(ball_x_relative**2 + ball_y_relative**2)
+        ball_x = record[DataEntryIndex.BallPosX.value]
+        ball_y = record[DataEntryIndex.BallPosY.value]
 
-        # BallModel is relative to their own position and orientation
-        # so, converting this local position to field coordinates requires translation and rotation
-        ego_theta = record[DataEntryIndex.Theta.value]
-        ball_x, ball_y = rel2glob_with_theta(ball_x_relative, ball_y_relative, ego_x, ego_y, ego_theta)
-
-        # but it's not over yet: in order to truly align with the MARIO data,
+        # then, in order to truly align with the MARIO data,
         # we want the relative ball position to ONLY be relative to the robot's position
         # (b/c MARIO can't get the orientation from the video)
         ball_x_relative = ball_x - ego_x
         ball_y_relative = ball_y - ego_y
+        dist_to_ego = math.sqrt(ball_x_relative**2 + ball_y_relative**2)
 
         partial_processed_list.append(dict(
             frame=frame,
@@ -149,7 +131,7 @@ def handle_line(record, frame, tracker):
         ))
     
     # now for everyone else
-    # (there we rely on data from the robot's ObstacleModel, which works in local coordinates)
+    # (for our Shared Autonomy Challenge purposes, it was sent/logged as absolute coordinates)
     # (get_obstacle_list already does all the things we'd do for the ball)
     obstacles = get_obstacle_list(record)
     filtered_obstacles_idxs = lib_obstacles.get_filtered_obstacles(obstacles, OBSTACLEAGE_THRESHOLD)

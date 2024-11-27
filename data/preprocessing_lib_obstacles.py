@@ -47,8 +47,6 @@ INVALID_WEIGHT = 999999.999
 @dataclass
 class Obstacle:
     the_type: ObstacleType
-    x_original: float
-    y_original: float
     x_absolute: float
     y_absolute: float
     x_relative: float
@@ -59,8 +57,8 @@ class Obstacle:
     def is_perfect_match(self, other):
         return (
             self.the_type == other.the_type and 
-            self.x_original == other.x_original and 
-            self.y_original == other.y_original and 
+            self.x_absolute == other.x_absolute and 
+            self.y_absolute == other.y_absolute and 
             self.last_seen == other.last_seen
         )
     
