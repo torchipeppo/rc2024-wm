@@ -41,7 +41,7 @@ class DataEntryIndex(Enum):
 
 # main
 
-FILES = sorted((DATA_DIR/"ROBOCUP_TEST_DATA").rglob("*.jsonl"))
+FILES = sorted((DATA_DIR/"ROBOCUP_TEST_DATA_NORUNSWIFTATALL").rglob("*.jsonl"))
 
 BALL_ID = 0
 EGO_ID = 1  # this can be constant since we always have only the same controlled robot in these logs
@@ -175,7 +175,7 @@ def do_stuff(fname):
     
     if len(processed_list) > 0:
         processed = pd.concat(processed_list)
-        processed.to_csv(DATA_DIR / f"processed_real_test_set/{file_id_no}.csv", index=False)
+        processed.to_csv(DATA_DIR / f"processed_real_test_set_norunswiftatall/{file_id_no}.csv", index=False)
 
 
 

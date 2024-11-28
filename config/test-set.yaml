@@ -1,0 +1,57 @@
+# manifest hydra folder
+hydra:
+  output_subdir: hydra
+
+device: CUDA_IF_AVAILABLE  # this default is handled in a special decorator, can be overridden
+device_type: ???     # this is set in the same decorator based on the device; this should NOT be overridden
+
+dataset:
+  csv_path: realized_SAC2024_norunswiftatall
+  # the next ones are loaded from the (fixed) realized dataset config now
+  orig_csv_path: ???
+  number_of_other_robots: ???  # influences transformer config
+  min_time_span: ???
+  time_span: ???              # influences transformer config
+  time_bw_frames: ???
+
+tokenizer:
+  _target_: tokenizer.Tokenizer
+  abs_pos_conf:
+    _target_: tokenizer.AbsolutePosConf
+    x_min: -4500.0
+    y_min: -3000.0
+    x_max: 4500.0
+    y_max: 3000.0
+    # MEMO: if the number of buckets is even, zero WILL be a boundary.
+    x_buckets: 50              # influences transformer config
+    y_buckets: 30              # influences transformer config
+  rel_pos_conf:
+    _target_: tokenizer.RelativePosConf
+    threshold_high_precision: 2000.0
+    threshold_mid_precision: 3000.0
+    threshold_low_precision: 6000.0
+    
+    high_precision_positive_buckets: 20
+    mid_precision_positive_buckets: 5
+    low_precision_positive_buckets: 6  # does NOT include "out-of-range" bucket (unlike abs_pos_conf)
+    # influences transformer config. depends on the three above.
+    # set in a special wrapper at the very beginning. do NOT override.
+    total_relative_buckets: ???  # = 2*(high+mid+low+1)
+
+transformer:
+  # these three are set in a special decorator based on the other params, do NOT override
+  vocab_size: ???      # = x_buckets * y_buckets + total_relative_buckets**2
+  num_of_blocks: ???   # = time_span
+  block_size: ???      # = 2 + num_of_other_robots  (i.e. ego + others + ball)
+  _target_: transformer_nanogpt.TransformerConfig
+  n_layer: 6
+  n_head: 12
+  n_embd: 768
+  dropout: 0.0
+  bias: False
+  attn_mask_type: block_causal
+
+batch_size: 64
+
+# relative to calling script (i.e. repo root unless I change something)
+ckpt_fname: ../rc2024-wm_2024-11-09_BEST.pt

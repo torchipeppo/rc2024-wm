@@ -13,7 +13,7 @@ import numpy as np
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
 # se faccio più di una variante, teniamo la storia dei realized_dataset_name nei commenti
-REALIZED_DATASET_NAME = "realized_SAC2024"
+REALIZED_DATASET_NAME = "realized_SAC2024_norunswiftatall"
 
 TARGET_DIR = DATA_DIR / REALIZED_DATASET_NAME
 CONF_PATH = Path(__file__).parent / f"{REALIZED_DATASET_NAME}.conf.yaml"
