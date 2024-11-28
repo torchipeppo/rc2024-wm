@@ -26,7 +26,7 @@ def visualize(fname):
 
 # i.e. a directory called "data" in the parent folder to this repo's directory
 # note to self: parents list is ordered from direct father to root, so no need for negative indices
-DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
 visualize(DATA_DIR / "processed_real_test_set" / "6.csv")
 # visualize(DATA_DIR / "processed_by_gameegoid" / "10034-1305.csv")

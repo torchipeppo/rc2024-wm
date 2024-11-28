@@ -1,0 +1,6 @@
+orig_csv_path: processed_real_test_set
+number_of_other_robots: 3
+min_time_span: 3
+time_span: 5
+time_bw_frames: 45
+# still 5 seconds like the 5-150 config, but the logs from the challenge are at 9 FPS (median)

@@ -42,7 +42,6 @@ class DataEntryIndex(Enum):
 # main
 
 FILES = sorted((DATA_DIR/"ROBOCUP_TEST_DATA").rglob("*.jsonl"))
-PROCESSES = 24
 
 BALL_ID = 0
 EGO_ID = 1  # this can be constant since we always have only the same controlled robot in these logs
