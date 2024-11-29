@@ -15,7 +15,9 @@ from data import MarioCSVDataset, MarioRealizedDataset
 import utils
 import metrics
 
-DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+# determined all the way up here so hydra doesn't mess with it
+DIR_OF_THIS_FILE = Path(__file__).resolve().parent
+DATA_DIR = DIR_OF_THIS_FILE.parent / "data"
 
 # index in this list corresponds to the token ID
 # Note to self: adding new reserved tokens will require a (hopefully minor) overhaul of the tokenizer.
@@ -89,7 +91,7 @@ def main(conf):
     tokenizer.set_device(device)
     
     transformer = Transformer(hydra.utils.instantiate(conf.transformer), reserved_tokens=RESERVED_TOKENS).to(device)
-    ckpt_path = (Path(__file__).resolve().parent / conf.ckpt_fname).resolve()
+    ckpt_path = (DIR_OF_THIS_FILE / conf.ckpt_fname).resolve()
     checkpoint = torch.load(ckpt_path, map_location=device)
     transformer.load_state_dict(checkpoint['transformer'])
     transformer.eval()

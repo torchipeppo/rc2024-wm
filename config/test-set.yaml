@@ -54,4 +54,4 @@ transformer:
 batch_size: 64
 
 # relative to calling script (i.e. repo root unless I change something)
-ckpt_fname: ../rc2024-wm_2024-11-09_BEST.pt
+ckpt_fname: outputs/2024-11-09/00-28-09/rc2024-wm_ep100.pt
